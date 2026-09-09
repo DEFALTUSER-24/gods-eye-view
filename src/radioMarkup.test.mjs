@@ -166,6 +166,8 @@ test('no unchanged Realtime tool definition drifts silently', () => {
   // If this fails and the change was deliberate, re-derive the digest and say
   // in the mic-test brief which tools moved — the session cache busts on any
   // schema change.
+  // 2026-09-09: the Colectivos layer adds 'colectivos' to the layer-id enums
+  // of set_layer_visibility and show_data_layers_menu (deliberate).
   const TOUCHED = new Set([
     'set_context_mode',
     'control_cockpit',
@@ -174,16 +176,18 @@ test('no unchanged Realtime tool definition drifts silently', () => {
     'fly_to_location',
     'select_nearest_aircraft',
     'set_map_stack',
+    'set_layer_visibility',
+    'show_data_layers_menu',
   ]);
   const unchanged = realtimeTools()
     .filter((tool) => !TOUCHED.has(tool.name))
     .sort((a, b) => a.name.localeCompare(b.name));
-  assert.equal(unchanged.length, 21);
+  assert.equal(unchanged.length, 19);
   const digest = createHash('sha256')
     .update(JSON.stringify(unchanged))
     .digest('hex')
     .slice(0, 16);
-  assert.equal(digest, '802ed694b8887b88', 'an unchanged Realtime tool definition drifted');
+  assert.equal(digest, 'bec5d5804021d11d', 'an unchanged Realtime tool definition drifted');
 });
 
 test('Radio volume and mission speed share the Sharpen slider visual language', () => {

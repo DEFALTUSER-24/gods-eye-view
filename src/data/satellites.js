@@ -73,6 +73,9 @@ const RING_ROTATION_MS = 1000;   // re-align baked orbit rings to current GMST e
  */
 const CATALOG_GROUPS = [
   { tag: 'stations', path: 'stations' },
+  // Synthetic national group assembled by the proxy (SAOCOM, ARSAT, ÑuSat,
+  // BugSat). Listed before `geo` so ARSAT keeps the ARGENTINA tag.
+  { tag: 'argentina', path: 'argentina' },
   { tag: 'visual', path: 'visual' },
   { tag: 'gps-ops', path: 'gps-ops' },
   { tag: 'glonass', path: 'glo-ops' },
@@ -160,6 +163,12 @@ const POINT_STYLES = {
     color: _classColor('geo'),
     outlineColor: POINT_OUTLINE,
     outlineWidth: 0,
+  },
+  argentina: {
+    pixelSize: 7,
+    color: _classColor('argentina'),
+    outlineColor: POINT_OUTLINE,
+    outlineWidth: 1,
   },
   // Dense-mode extras (Starlink): dim, small, points-only.
   dense: {

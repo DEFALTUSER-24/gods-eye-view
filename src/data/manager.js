@@ -2022,8 +2022,36 @@ export class DataLayerManager {
     if (!this._toggleContainer) return;
     this._toggleContainer.innerHTML = '';
 
+    // Layers that declare `group` (e.g. the Argentina pack) render after the
+    // global ones under one labeled header, so a country pack is easy to find.
+    const GROUP_LABELS = { argentina: { flag: '🇦🇷', title: 'Argentina' } };
+    const ungrouped = [];
+    const grouped = new Map();
     for (const layer of this.getAll()) {
       if (!layer.showInTogglePanel) continue;
+      const group = this.layers.get(layer.id)?.module?.group;
+      if (group && GROUP_LABELS[group]) {
+        if (!grouped.has(group)) grouped.set(group, []);
+        grouped.get(group).push(layer);
+      } else {
+        ungrouped.push(layer);
+      }
+    }
+    const ordered = [...ungrouped];
+    for (const [group, layers] of grouped) {
+      ordered.push({ __groupHeader: group, ...GROUP_LABELS[group] });
+      ordered.push(...layers);
+    }
+
+    for (const layer of ordered) {
+      if (layer.__groupHeader) {
+        const header = document.createElement('div');
+        header.className = 'data-toggle-group';
+        header.dataset.layerGroup = layer.__groupHeader;
+        header.innerHTML = `<span class="data-toggle-group-flag">${layer.flag}</span><span>${layer.title}</span>`;
+        this._toggleContainer.appendChild(header);
+        continue;
+      }
       const row = document.createElement('div');
       row.className = 'data-toggle-row';
       row.dataset.layerId = layer.id;

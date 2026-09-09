@@ -66,10 +66,17 @@ export const SATELLITE_CLASSES = Object.freeze({
     color: '#54697f',
     blurb: 'Broadband constellation shell — shown only in DENSE mode',
   }),
+  argentina: Object.freeze({
+    label: 'ARGENTINA',
+    // Rose — a hue no other class or domain uses (amber is military, cyan is
+    // NAV, violet is GEO), so the national fleet pops without colliding.
+    color: '#ff85c2',
+    blurb: 'Argentine-operated: CONAE SAOCOM, ARSAT, Satellogic ÑuSat, BugSat',
+  }),
 });
 
 /** Legend/report order for the classes above. */
-export const SATELLITE_CLASS_ORDER = Object.freeze(['station', 'nav', 'geo', 'visual', 'comms']);
+export const SATELLITE_CLASS_ORDER = Object.freeze(['station', 'argentina', 'nav', 'geo', 'visual', 'comms']);
 
 /**
  * CelesTrak group tag → { class, subtype }. Subtype names the specific
@@ -84,6 +91,7 @@ const GROUP_CLASS = Object.freeze({
   galileo: Object.freeze({ klass: 'nav', subtype: 'GALILEO' }),
   geo: Object.freeze({ klass: 'geo', subtype: null }),
   dense: Object.freeze({ klass: 'comms', subtype: 'STARLINK' }),
+  argentina: Object.freeze({ klass: 'argentina', subtype: null }),
 });
 
 /** Unknown groups fall back to the neutral bucket rather than vanishing. */

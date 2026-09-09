@@ -75,6 +75,44 @@ import {
   validTerrainResult,
 } from './src/data/terrainHeightsProxy.js';
 import { VOICE_MODELS, isKnownVoiceTier, resolveVoiceModel } from './src/voice/voiceCost.js';
+import {
+  WINDY_DEFAULT_COUNTRIES,
+  WINDY_DEFAULT_MAX_SOURCES,
+  WINDY_PAGE_LIMIT,
+  windyDetailUrl,
+  windyListToSources,
+  windyListUrl,
+  windyPreviewUrl,
+} from './src/data/windyWebcams.mjs';
+import { normalizeColectivosBody } from './src/data/colectivosFeed.js';
+import {
+  SMN_ESTACIONES_URL,
+  SMN_TIEPRE_URL,
+  decodeLatin1,
+  joinObservations,
+  parseEstaciones,
+  parseTiepre,
+  readFirstZipEntry,
+} from './src/data/smnOpenData.mjs';
+import {
+  CAMMESA_REGIONS,
+  CAMMESA_TOTAL_REGION_ID,
+  latestDemandPoint,
+  latestGenerationPoint,
+  peakDemand,
+} from './src/data/cammesaFeed.js';
+import { normalizeHotspotCollection } from './src/data/conaeFeed.js';
+import { normalizeOutages } from './src/data/edesurFeed.js';
+import { parseCsv as parseFuelCsv, reduceStations as reduceFuelStations } from './src/data/fuelFeed.js';
+import { SMN_CAP_INDEX_URL, capIndexLinks, parseCapAlert } from './src/data/smnCap.js';
+import { normalizeTramos } from './src/data/rutasFeed.js';
+import {
+  activeSeriesIds,
+  chunkIds,
+  mergeObservations,
+  normalizeSeriesRows,
+  serializeStations,
+} from './src/data/inaFeed.js';
 
 /** Resolve __dirname for ESM context. */
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -1576,18 +1614,57 @@ function celestrakProxy() {
     }
   }
 
-  async function fetchUpstream(group) {
+  const CELESTRAK_HEADERS = {
+    // CelesTrak 403s bulk groups (e.g. `active`) unless the request carries a
+    // descriptive User-Agent with a contact point.
+    'User-Agent': 'gods-eye-view-celestrak-proxy/1.0 (+https://github.com/bilawalsidhu/gods-eye-view)',
+  };
+
+  async function fetchCelestrakTle(params) {
     const url = new URL('https://celestrak.org/NORAD/elements/gp.php');
-    url.searchParams.set('GROUP', group);
+    for (const [key, value] of Object.entries(params)) url.searchParams.set(key, value);
     url.searchParams.set('FORMAT', 'tle');
-    const res = await fetch(url.toString(), {
-      signal: AbortSignal.timeout(20000),
-      // CelesTrak 403s bulk groups (e.g. `active`) unless the request carries a
-      // descriptive User-Agent with a contact point.
-      headers: { 'User-Agent': 'gods-eye-view-celestrak-proxy/1.0 (+https://github.com/bilawalsidhu/gods-eye-view)' },
-    });
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(20000), headers: CELESTRAK_HEADERS });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const body = await res.text();
+    return res.text();
+  }
+
+  /**
+   * Synthetic "argentina" group: CelesTrak has no national group, so it is
+   * assembled from NAME queries and filtered to Argentine-operated objects
+   * (CONAE SAOCOM, ARSAT, Satellogic ÑuSat, Satellogic/INVAP BugSat, CubeBug).
+   */
+  async function fetchArgentinaGroup() {
+    const queries = ['SAOCOM', 'ARSAT', 'NUSAT', 'BUGSAT', 'CUBEBUG'];
+    const keep = /^(SAOCOM|ARSAT|NUSAT|BUGSAT|CUBEBUG)/i;
+    const seen = new Set();
+    const lines = [];
+    for (const name of queries) {
+      let body = '';
+      try {
+        body = await fetchCelestrakTle({ NAME: name });
+      } catch (error) {
+        console.warn(`[celestrak-proxy] argentina NAME=${name} failed:`, error?.message || error);
+        continue;
+      }
+      const rows = body.split(/\r?\n/);
+      for (let i = 0; i + 2 < rows.length; i += 1) {
+        const title = rows[i].trim();
+        if (!keep.test(title) || !/^1 /.test(rows[i + 1]) || !/^2 /.test(rows[i + 2])) continue;
+        const norad = rows[i + 1].slice(2, 7).trim();
+        if (seen.has(norad)) { i += 2; continue; }
+        seen.add(norad);
+        lines.push(title, rows[i + 1].trim(), rows[i + 2].trim());
+        i += 2;
+      }
+    }
+    return lines.join('\n') + '\n';
+  }
+
+  async function fetchUpstream(group) {
+    const body = group === 'argentina'
+      ? await fetchArgentinaGroup()
+      : await fetchCelestrakTle({ GROUP: group });
     // An upstream error page parses to zero TLEs — treat as failure, keep cache.
     if (!/^1 /m.test(body)) throw new Error('no TLE lines in response');
     return { at: Date.now(), body };
@@ -3306,6 +3383,7 @@ function isAllowedGbfsHost(hostname) {
   const host = String(hostname || '').trim().toLowerCase();
   if (!host) return false;
   if (GBFS_ALLOWED_HOSTS.has(host)) return true;
+  if (host === BA_TRANSPORTE_HOST) return true;
   return host.endsWith('.publicbikesystem.net');
 }
 
@@ -3317,6 +3395,16 @@ function isAllowedGbfsHost(hostname) {
  */
 function isAllowedGbfsPath(pathname) {
   return /\/station_(information|status)\.json$/i.test(String(pathname || ''));
+}
+
+/**
+ * API Transporte serves the Ecobici GBFS documents under camelCase paths
+ * without the .json suffix; clients keep the canonical filenames.
+ */
+export function baEcobiciUpstreamPath(pathname) {
+  return String(pathname || '')
+    .replace(/\/station_information\.json$/i, '/stationInformation')
+    .replace(/\/station_status\.json$/i, '/stationStatus');
 }
 
 /**
@@ -3345,6 +3433,727 @@ function gbfsCacheControl(pathname) {
  *
  * @returns {import('vite').Plugin}
  */
+// ── Buenos Aires "API Transporte" (BYOK, server-side only) ──────────────────
+// client_id / client_secret travel as QUERY PARAMS upstream, so the browser
+// must never build that URL. Same-origin /api/ba-colectivos serves a
+// normalized, credential-free snapshot; the GBFS proxy below appends the same
+// credentials for the Ecobici feeds hosted on the same API.
+const BA_TRANSPORTE_HOST = 'apitransporte.buenosaires.gob.ar';
+const BA_COLECTIVOS_PATH = '/colectivos/vehiclePositionsSimple';
+const BA_COLECTIVOS_TTL_MS = 20_000;
+const BA_COLECTIVOS_TIMEOUT_MS = 20_000;
+const BA_COLECTIVOS_MAX_RESPONSE_BYTES = 16 * 1024 * 1024;
+
+function baTransporteCredentials() {
+  return {
+    clientId: String(process.env.BA_TRANSPORTE_CLIENT_ID || '').trim(),
+    clientSecret: String(process.env.BA_TRANSPORTE_CLIENT_SECRET || '').trim(),
+  };
+}
+
+function hasBaTransporteCredentials() {
+  const { clientId, clientSecret } = baTransporteCredentials();
+  return Boolean(clientId && clientSecret);
+}
+
+/** Append the server-held credentials to an upstream API Transporte URL. */
+function withBaTransporteCredentials(url) {
+  const { clientId, clientSecret } = baTransporteCredentials();
+  const out = new URL(url.toString());
+  out.searchParams.set('client_id', clientId);
+  out.searchParams.set('client_secret', clientSecret);
+  return out;
+}
+
+export function baColectivosUpstreamUrl(env = process.env) {
+  const url = new URL(`https://${BA_TRANSPORTE_HOST}${BA_COLECTIVOS_PATH}`);
+  const routeIds = String(env.BA_COLECTIVOS_ROUTE_IDS || '').replace(/\s+/g, '');
+  const agencyIds = String(env.BA_COLECTIVOS_AGENCY_IDS || '').replace(/\s+/g, '');
+  if (routeIds) url.searchParams.set('route_id', routeIds);
+  if (agencyIds) url.searchParams.set('agency_id', agencyIds);
+  return url;
+}
+
+function baColectivosProxy() {
+  let cache = null; // { at, payload }
+  let inflight = null;
+
+  async function fetchUpstream() {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), BA_COLECTIVOS_TIMEOUT_MS);
+    try {
+      const upstream = await fetch(withBaTransporteCredentials(baColectivosUpstreamUrl()).toString(), {
+        method: 'GET',
+        headers: { Accept: 'application/json', 'User-Agent': 'gods-eye-view-ba-colectivos-proxy/1.0' },
+        signal: controller.signal,
+      });
+      if (upstream.status === 401 || upstream.status === 403) {
+        return { ok: false, status: 503, error: 'invalid_key' };
+      }
+      if (!upstream.ok) {
+        console.warn(`[BA Colectivos] upstream HTTP ${upstream.status}`);
+        return { ok: false, status: 502, error: `upstream_${upstream.status}` };
+      }
+      const body = await readResponseJsonCapped(upstream, BA_COLECTIVOS_MAX_RESPONSE_BYTES);
+      const { vehicles, generatedAtMs } = normalizeColectivosBody(body);
+      return {
+        ok: true,
+        payload: { generatedAt: generatedAtMs, count: vehicles.length, vehicles },
+      };
+    } catch (error) {
+      if (error?.name === 'AbortError') return { ok: false, status: 504, error: 'upstream_timeout' };
+      if (error?.code === 'RESPONSE_TOO_LARGE') return { ok: false, status: 502, error: 'upstream_too_large' };
+      console.warn('[BA Colectivos] fetch failed:', error?.message || error);
+      return { ok: false, status: 502, error: 'upstream_error' };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  return {
+    name: 'ba-colectivos-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/ba-colectivos', async (req, res) => {
+        const send = (status, payload, extraHeaders = {}) => {
+          res.writeHead(status, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+            ...extraHeaders,
+          });
+          res.end(JSON.stringify(payload));
+        };
+        try {
+          if (req.method !== 'GET') {
+            send(405, { error: 'Method Not Allowed' });
+            return;
+          }
+          if (!hasBaTransporteCredentials()) {
+            send(503, { error: 'no_key', message: 'BA_TRANSPORTE_CLIENT_ID / BA_TRANSPORTE_CLIENT_SECRET not configured' });
+            return;
+          }
+          const now = Date.now();
+          if (cache && now - cache.at < BA_COLECTIVOS_TTL_MS) {
+            send(200, cache.payload, { 'X-BA-Cache': 'HIT' });
+            return;
+          }
+          if (!inflight) {
+            inflight = fetchUpstream().finally(() => { inflight = null; });
+          }
+          const result = await inflight;
+          if (result.ok) {
+            cache = { at: Date.now(), payload: result.payload };
+            send(200, result.payload, { 'X-BA-Cache': 'MISS' });
+            return;
+          }
+          if (cache) {
+            send(200, { ...cache.payload, stale: true, staleReason: result.error }, { 'X-BA-Cache': 'STALE-ERROR' });
+            return;
+          }
+          send(result.status || 502, { error: result.error || 'upstream_error' });
+        } catch (error) {
+          console.error('[BA Colectivos Proxy]', error?.message || String(error));
+          send(502, { error: 'ba-colectivos proxy error' });
+        }
+      });
+    },
+  };
+}
+
+// ── SMN (Servicio Meteorológico Nacional, Argentina) open data ──────────────
+// Keyless. Two small ZIPs of Latin-1 text: current observations (hourly) and
+// the station list (coordinates). Parsed + joined server-side so the browser
+// receives plain JSON. Station list cached a day, observations 10 minutes.
+const SMN_OBS_TTL_MS = 10 * 60_000;
+const SMN_STATIONS_TTL_MS = 24 * 60 * 60_000;
+const SMN_TIMEOUT_MS = 20_000;
+const SMN_MAX_ZIP_BYTES = 2 * 1024 * 1024;
+
+async function fetchSmnZipText(url) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SMN_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'gods-eye-view-smn-proxy/1.0', Accept: 'application/zip,application/octet-stream,*/*' },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`SMN HTTP ${response.status}`);
+    const bytes = await response.arrayBuffer();
+    if (bytes.byteLength > SMN_MAX_ZIP_BYTES) throw new Error('SMN response too large');
+    const entry = readFirstZipEntry(Buffer.from(bytes));
+    if (!entry) throw new Error('SMN response is not a ZIP');
+    return decodeLatin1(entry.data);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function smnProxy() {
+  let stationsCache = null; // { at, rows }
+  let obsCache = null; // { at, payload }
+  let inflight = null;
+
+  async function refresh() {
+    const now = Date.now();
+    if (!stationsCache || now - stationsCache.at > SMN_STATIONS_TTL_MS) {
+      try {
+        const rows = parseEstaciones(await fetchSmnZipText(SMN_ESTACIONES_URL));
+        if (rows.length) stationsCache = { at: now, rows };
+      } catch (error) {
+        if (!stationsCache) throw error;
+        console.warn('[SMN Proxy] station list refresh failed, keeping cached:', error?.message || error);
+      }
+    }
+    const observations = parseTiepre(await fetchSmnZipText(SMN_TIEPRE_URL));
+    const stations = joinObservations(observations, stationsCache.rows);
+    const newest = stations.reduce((max, s) => (s.observedAt > max ? s.observedAt : max), 0);
+    return {
+      generatedAt: newest || now,
+      count: stations.length,
+      observedRows: observations.length,
+      stations,
+    };
+  }
+
+  return {
+    name: 'smn-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/smn', async (req, res) => {
+        const send = (status, payload, extra = {}) => {
+          res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...extra });
+          res.end(JSON.stringify(payload));
+        };
+        try {
+          if (req.method !== 'GET') return send(405, { error: 'Method Not Allowed' });
+          const url = new URL(req.url || '/', 'http://localhost');
+          if (url.pathname !== '/observations') return send(404, { error: 'not found' });
+          const now = Date.now();
+          if (obsCache && now - obsCache.at < SMN_OBS_TTL_MS) {
+            return send(200, obsCache.payload, { 'X-SMN-Cache': 'HIT' });
+          }
+          if (!inflight) inflight = refresh().finally(() => { inflight = null; });
+          try {
+            const payload = await inflight;
+            obsCache = { at: Date.now(), payload };
+            return send(200, payload, { 'X-SMN-Cache': 'MISS' });
+          } catch (error) {
+            console.warn('[SMN Proxy] refresh failed:', error?.message || error);
+            if (obsCache) return send(200, { ...obsCache.payload, stale: true }, { 'X-SMN-Cache': 'STALE-ERROR' });
+            return send(502, { error: 'smn_upstream' });
+          }
+        } catch (error) {
+          console.error('[SMN Proxy]', error?.message || String(error));
+          return send(502, { error: 'smn proxy error' });
+        }
+      });
+    },
+  };
+}
+
+// ── CAMMESA real-time grid (Argentina) ──────────────────────────────────────
+// Keyless JSON, 5-minute samples. One request per demand region plus the
+// national total and its generation mix; cached 5 minutes, single-flight.
+const CAMMESA_BASE = 'https://api.cammesa.com/demanda-svc';
+const CAMMESA_TTL_MS = 5 * 60_000;
+const CAMMESA_TIMEOUT_MS = 20_000;
+const CAMMESA_MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
+
+async function fetchCammesaJson(pathname, regionId) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CAMMESA_TIMEOUT_MS);
+  try {
+    const url = new URL(`${CAMMESA_BASE}${pathname}`);
+    url.searchParams.set('id_region', String(regionId));
+    const response = await fetch(url.toString(), {
+      headers: { 'User-Agent': 'gods-eye-view-cammesa-proxy/1.0', Accept: 'application/json' },
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`CAMMESA HTTP ${response.status}`);
+    return await readResponseJsonCapped(response, CAMMESA_MAX_RESPONSE_BYTES);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+function cammesaProxy() {
+  let cache = null; // { at, payload }
+  let inflight = null;
+
+  async function refresh() {
+    const demandPath = '/demanda/ObtieneDemandaYTemperaturaRegion';
+    const generationPath = '/generacion/ObtieneGeneracioEnergiaPorRegion';
+    const jobs = CAMMESA_REGIONS.map((region) => fetchCammesaJson(demandPath, region.id));
+    jobs.push(fetchCammesaJson(demandPath, CAMMESA_TOTAL_REGION_ID));
+    jobs.push(fetchCammesaJson(generationPath, CAMMESA_TOTAL_REGION_ID));
+    const settled = await Promise.allSettled(jobs);
+    const regions = [];
+    CAMMESA_REGIONS.forEach((region, index) => {
+      const result = settled[index];
+      if (result.status !== 'fulfilled') return;
+      const latest = latestDemandPoint(result.value);
+      if (!latest) return;
+      regions.push({
+        id: region.id,
+        name: region.name,
+        lat: region.lat,
+        lon: region.lon,
+        ...latest,
+        peakMw: peakDemand(result.value),
+      });
+    });
+    const totalResult = settled[CAMMESA_REGIONS.length];
+    const genResult = settled[CAMMESA_REGIONS.length + 1];
+    const totalLatest = totalResult.status === 'fulfilled' ? latestDemandPoint(totalResult.value) : null;
+    const generation = genResult.status === 'fulfilled' ? latestGenerationPoint(genResult.value) : null;
+    if (!regions.length && !totalLatest) throw new Error('CAMMESA returned no usable samples');
+    return {
+      generatedAt: Date.now(),
+      count: regions.length,
+      regions,
+      total: totalLatest ? {
+        ...totalLatest,
+        peakMw: totalResult.status === 'fulfilled' ? peakDemand(totalResult.value) : null,
+        generation,
+      } : (generation ? { demandMw: null, generation } : null),
+    };
+  }
+
+  return {
+    name: 'cammesa-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/cammesa', async (req, res) => {
+        const send = (status, payload, extra = {}) => {
+          res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...extra });
+          res.end(JSON.stringify(payload));
+        };
+        try {
+          if (req.method !== 'GET') return send(405, { error: 'Method Not Allowed' });
+          const url = new URL(req.url || '/', 'http://localhost');
+          if (url.pathname !== '/grid') return send(404, { error: 'not found' });
+          const now = Date.now();
+          if (cache && now - cache.at < CAMMESA_TTL_MS) return send(200, cache.payload, { 'X-CAMMESA-Cache': 'HIT' });
+          if (!inflight) inflight = refresh().finally(() => { inflight = null; });
+          try {
+            const payload = await inflight;
+            cache = { at: Date.now(), payload };
+            return send(200, payload, { 'X-CAMMESA-Cache': 'MISS' });
+          } catch (error) {
+            console.warn('[CAMMESA Proxy] refresh failed:', error?.message || error);
+            if (cache) return send(200, { ...cache.payload, stale: true }, { 'X-CAMMESA-Cache': 'STALE-ERROR' });
+            return send(502, { error: 'cammesa_upstream' });
+          }
+        } catch (error) {
+          console.error('[CAMMESA Proxy]', error?.message || String(error));
+          return send(502, { error: 'cammesa proxy error' });
+        }
+      });
+    },
+  };
+}
+
+// ── RainViewer radar catalog (keyless) ──────────────────────────────────────
+// Only the small frame catalog is brokered (fixed upstream URL, 60 s cache);
+// PNG tiles load straight from tilecache.rainviewer.com (CORS *).
+const RAINVIEWER_MAPS_URL = 'https://api.rainviewer.com/public/weather-maps.json';
+const RAINVIEWER_TTL_MS = 60_000;
+const RAINVIEWER_TIMEOUT_MS = 15_000;
+const RAINVIEWER_MAX_RESPONSE_BYTES = 256 * 1024;
+
+function rainviewerProxy() {
+  let cache = null; // { at, payload }
+  let inflight = null;
+
+  async function refresh() {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), RAINVIEWER_TIMEOUT_MS);
+    try {
+      const response = await fetch(RAINVIEWER_MAPS_URL, {
+        headers: { 'User-Agent': 'gods-eye-view-rainviewer-proxy/1.0', Accept: 'application/json' },
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`RainViewer HTTP ${response.status}`);
+      const body = await readResponseJsonCapped(response, RAINVIEWER_MAX_RESPONSE_BYTES);
+      if (!body || typeof body.host !== 'string' || !Array.isArray(body?.radar?.past)) {
+        throw new Error('RainViewer catalog malformed');
+      }
+      // Pass through only what the client needs.
+      return {
+        generated: Number(body.generated) || Math.floor(Date.now() / 1000),
+        host: body.host,
+        radar: {
+          past: body.radar.past.map((f) => ({ time: Number(f?.time), path: String(f?.path || '') })),
+          nowcast: Array.isArray(body.radar.nowcast)
+            ? body.radar.nowcast.map((f) => ({ time: Number(f?.time), path: String(f?.path || '') }))
+            : [],
+        },
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  return {
+    name: 'rainviewer-proxy',
+    configureServer(server) {
+      server.middlewares.use('/api/rainviewer', async (req, res) => {
+        const send = (status, payload, extra = {}) => {
+          res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...extra });
+          res.end(JSON.stringify(payload));
+        };
+        try {
+          if (req.method !== 'GET') return send(405, { error: 'Method Not Allowed' });
+          const url = new URL(req.url || '/', 'http://localhost');
+          if (url.pathname !== '/maps') return send(404, { error: 'not found' });
+          const now = Date.now();
+          if (cache && now - cache.at < RAINVIEWER_TTL_MS) return send(200, cache.payload, { 'X-RainViewer-Cache': 'HIT' });
+          if (!inflight) inflight = refresh().finally(() => { inflight = null; });
+          try {
+            const payload = await inflight;
+            cache = { at: Date.now(), payload };
+            return send(200, payload, { 'X-RainViewer-Cache': 'MISS' });
+          } catch (error) {
+            console.warn('[RainViewer Proxy] refresh failed:', error?.message || error);
+            if (cache) return send(200, { ...cache.payload, stale: true }, { 'X-RainViewer-Cache': 'STALE-ERROR' });
+            return send(502, { error: 'rainviewer_upstream' });
+          }
+        } catch (error) {
+          console.error('[RainViewer Proxy]', error?.message || String(error));
+          return send(502, { error: 'rainviewer proxy error' });
+        }
+      });
+    },
+  };
+}
+
+// ── Generic keyless JSON snapshot proxy ─────────────────────────────────────
+// Shared shape for the small Argentina feeds below: one upstream fetch,
+// normalized server-side, cached with a TTL, single-flight, stale-on-error,
+// sanitized errors. `load()` must return the JSON payload to serve.
+function createSnapshotProxy({ name, route, ttlMs, load, diskCacheFile = null, diskTtlMs = 0 }) {
+  let cache = null; // { at, payload }
+  let inflight = null;
+  const diskPath = diskCacheFile ? path.join(process.cwd(), '.gev-cache', diskCacheFile) : null;
+
+  function readDisk() {
+    if (!diskPath) return null;
+    try {
+      const stat = fs.statSync(diskPath);
+      if (Date.now() - stat.mtimeMs > diskTtlMs) return null;
+      return { at: stat.mtimeMs, payload: JSON.parse(fs.readFileSync(diskPath, 'utf8')) };
+    } catch { return null; }
+  }
+
+  function writeDisk(payload) {
+    if (!diskPath) return;
+    try {
+      fs.mkdirSync(path.dirname(diskPath), { recursive: true });
+      fs.writeFileSync(diskPath, JSON.stringify(payload));
+    } catch (error) {
+      console.warn(`[${name}] disk cache write failed:`, error?.message || error);
+    }
+  }
+
+  return {
+    name,
+    configureServer(server) {
+      server.middlewares.use(route, async (req, res) => {
+        const send = (status, payload, extra = {}) => {
+          res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...extra });
+          res.end(JSON.stringify(payload));
+        };
+        try {
+          if (req.method !== 'GET') return send(405, { error: 'Method Not Allowed' });
+          const now = Date.now();
+          if (!cache && diskPath) cache = readDisk();
+          if (cache && now - cache.at < ttlMs) return send(200, cache.payload, { 'X-Snapshot-Cache': 'HIT' });
+          if (!inflight) inflight = load().finally(() => { inflight = null; });
+          try {
+            const payload = await inflight;
+            cache = { at: Date.now(), payload };
+            writeDisk(payload);
+            return send(200, payload, { 'X-Snapshot-Cache': 'MISS' });
+          } catch (error) {
+            console.warn(`[${name}] refresh failed:`, error?.message || error);
+            if (cache) return send(200, { ...cache.payload, stale: true }, { 'X-Snapshot-Cache': 'STALE-ERROR' });
+            return send(502, { error: 'upstream_error' });
+          }
+        } catch (error) {
+          console.error(`[${name}]`, error?.message || String(error));
+          return send(502, { error: `${name} error` });
+        }
+      });
+    },
+  };
+}
+
+async function fetchWithTimeout(url, { timeoutMs = 30_000, headers = {} } = {}) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      headers: { 'User-Agent': 'gods-eye-view-proxy/1.0 (+https://github.com/bilawalsidhu/gods-eye-view)', ...headers },
+      signal: controller.signal,
+      redirect: 'follow',
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// CONAE "Focos de calor": GOES-19 hotspots, last 24 h, WFS → GeoJSON (keyless).
+const CONAE_WFS_URL = 'https://focosdecalor.conae.gov.ar/geoserver/FocosDeCalor/wfs?service=wfs&version=2.0.0&request=GetFeature&typeNames=FocosDeCalor:FocosGOES_24hs&outputFormat=application/json';
+function conaeProxy() {
+  return createSnapshotProxy({
+    name: 'conae-proxy',
+    route: '/api/conae/hotspots',
+    ttlMs: 10 * 60_000,
+    async load() {
+      const response = await fetchWithTimeout(CONAE_WFS_URL, { timeoutMs: 90_000, headers: { Accept: 'application/json' } });
+      const collection = await readResponseJsonCapped(response, 24 * 1024 * 1024);
+      const { hotspots, newestMs } = normalizeHotspotCollection(collection);
+      return { generatedAt: Date.now(), newestMs, count: hotspots.length, hotspots };
+    },
+  });
+}
+
+// Edesur outage report (keyless, undocumented endpoint behind their public widget).
+const EDESUR_URL = 'https://ed.edesur.com.ar/api/utils/outage-report';
+function edesurProxy() {
+  return createSnapshotProxy({
+    name: 'edesur-proxy',
+    route: '/api/edesur/outages',
+    ttlMs: 5 * 60_000,
+    async load() {
+      const response = await fetchWithTimeout(EDESUR_URL, { timeoutMs: 30_000, headers: { Accept: 'application/json' } });
+      const body = await readResponseJsonCapped(response, 4 * 1024 * 1024);
+      const outages = normalizeOutages(body);
+      return { generatedAt: Date.now(), count: outages.length, outages };
+    },
+  });
+}
+
+// Secretaría de Energía "precios en surtidor": ~9 MB CSV, reduced to one
+// record per station. Refreshed at most every 6 h, persisted to .gev-cache.
+const FUEL_CSV_URL = 'http://datos.energia.gob.ar/dataset/1c181390-5045-475e-94dc-410429be4b17/resource/80ac25de-a44a-4445-9215-090cf55cfda5/download/precios-en-surtidor-resolucin-3142016.csv';
+function fuelPricesProxy() {
+  return createSnapshotProxy({
+    name: 'fuel-prices-proxy',
+    route: '/api/energia/fuel-prices',
+    ttlMs: 6 * 60 * 60_000,
+    diskCacheFile: 'fuel-prices.json',
+    diskTtlMs: 6 * 60 * 60_000,
+    async load() {
+      const response = await fetchWithTimeout(FUEL_CSV_URL, { timeoutMs: 240_000, headers: { Accept: 'text/csv,*/*' } });
+      const text = await readResponseTextCapped(response, 40 * 1024 * 1024);
+      const { stations, newestMs, period } = reduceFuelStations(parseFuelCsv(text));
+      console.log(`[fuel-prices-proxy] ${stations.length} stations (newest report ${newestMs ? new Date(newestMs).toISOString().slice(0, 10) : 'n/a'})`);
+      return { generatedAt: Date.now(), newestMs, period, count: stations.length, stations };
+    },
+  });
+}
+
+// ── Bahía Blanca "GPS Bahía" live bus positions (keyless, unofficial) ───────
+// The municipal web app polls app/track_data/{linea}.json with a CodeIgniter
+// session cookie minted by GET / plus a page-embedded token. Both are fetched
+// here and cached; if the site changes, this degrades to an empty source.
+const GPSBAHIA_BASE = 'https://www.gpsbahia.com.ar';
+const GPSBAHIA_LINES = Object.freeze([
+  [3, '319'], [4, '500'], [34, '502'], [6, '503'], [39, '503 UNS'], [7, '504'], [8, '505'],
+  [9, '506'], [10, '507'], [1, '509'], [11, '512'], [12, '513'], [13, '513 EX'], [14, '514'],
+  [15, '516'], [16, '517'], [42, '517 Rondón'], [17, '518'], [18, '519'], [19, '519 A'],
+  [30, '520'], [40, '520 Aeropuerto'], [37, '521 Bosque Alto'], [38, '521 Conicet'],
+]);
+const GPSBAHIA_SESSION_TTL_MS = 25 * 60_000;
+const GPSBAHIA_TTL_MS = 20_000;
+let _gpsBahiaSession = null; // { at, cookie, token }
+
+async function gpsBahiaSession() {
+  if (_gpsBahiaSession && Date.now() - _gpsBahiaSession.at < GPSBAHIA_SESSION_TTL_MS) return _gpsBahiaSession;
+  const response = await fetchWithTimeout(`${GPSBAHIA_BASE}/`, { timeoutMs: 30_000, headers: { Accept: 'text/html' } });
+  const html = await readResponseTextCapped(response, 4 * 1024 * 1024);
+  const cookie = (response.headers.get('set-cookie') || '').match(/ci_session=[A-Za-z0-9]+/)?.[0] || '';
+  const token = html.match(/vgg?gaxqq\s*=\s*'([0-9a-f]{32})'/)?.[1] || '';
+  if (!cookie || !token) throw new Error('GPS Bahía session/token not found');
+  _gpsBahiaSession = { at: Date.now(), cookie, token };
+  return _gpsBahiaSession;
+}
+
+function bahiaBusesProxy() {
+  return createSnapshotProxy({
+    name: 'bahia-buses-proxy',
+    route: '/api/bahia-colectivos',
+    ttlMs: GPSBAHIA_TTL_MS,
+    async load() {
+      const session = await gpsBahiaSession();
+      const results = await Promise.allSettled(GPSBAHIA_LINES.map(async ([lineId, lineName]) => {
+        const response = await fetchWithTimeout(`${GPSBAHIA_BASE}/app/track_data/${lineId}.json?vggaxqq=${session.token}`, {
+          timeoutMs: 20_000,
+          headers: { Accept: 'application/json', Cookie: session.cookie },
+        });
+        const body = await readResponseJsonCapped(response, 2 * 1024 * 1024);
+        return (Array.isArray(body?.data) ? body.data : []).map((v) => ({
+          id: `bb-${v.imei || v.interno}`,
+          route_short_name: lineName,
+          route_id: String(lineId),
+          latitude: v.lat,
+          longitude: v.lng,
+          direction: v.angle,
+          timestamp: v.dt_tracker ? `${String(v.dt_tracker).replace(' ', 'T')}Z` : undefined,
+          agency_name: 'Bahía Blanca',
+          trip_headsign: v.direccion || '',
+          vehicle_label: v.interno || v.name || '',
+        }));
+      }));
+      const rows = results.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+      const failed = results.filter((r) => r.status === 'rejected').length;
+      if (failed === results.length) {
+        _gpsBahiaSession = null; // force a fresh cookie/token next time
+        throw new Error('GPS Bahía: every line request failed');
+      }
+      const { vehicles, generatedAtMs } = normalizeColectivosBody(rows, { bounds: 'bahia-blanca' });
+      return { generatedAt: generatedAtMs, count: vehicles.length, linesFailed: failed, vehicles };
+    },
+  });
+}
+
+// SMN CAP alerts: scrape the index for XML links, fetch only new files (per-URL
+// cache survives across refreshes), parse polygons server-side. Keyless.
+const SMN_CAP_FILE_TTL_MS = 6 * 60 * 60_000;
+// ssl.smn.gob.ar sits behind Cloudflare and answers 522 to non-browser agents.
+const SMN_BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36';
+const _capFileCache = new Map(); // url -> { at, alert|null }
+async function fetchCapFile(url) {
+  const cached = _capFileCache.get(url);
+  if (cached && Date.now() - cached.at < SMN_CAP_FILE_TTL_MS) return cached.alert;
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(url, { timeoutMs: 20_000, headers: { Accept: 'application/xml,text/xml,*/*', 'User-Agent': SMN_BROWSER_UA } });
+      const xml = await readResponseTextCapped(response, 512 * 1024);
+      const alert = parseCapAlert(xml, url);
+      _capFileCache.set(url, { at: Date.now(), alert });
+      return alert;
+    } catch (error) {
+      lastError = error; // Cloudflare 522s are common; one retry fixes most.
+    }
+  }
+  throw lastError;
+}
+
+function smnAlertsProxy() {
+  return createSnapshotProxy({
+    name: 'smn-alerts-proxy',
+    // Not under /api/smn: that prefix is owned by the observations proxy,
+    // which answers 404 for any other path.
+    route: '/api/smn-alerts',
+    ttlMs: 10 * 60_000,
+    async load() {
+      const index = await fetchWithTimeout(SMN_CAP_INDEX_URL, {
+        timeoutMs: 30_000,
+        headers: { Accept: 'text/html', 'User-Agent': SMN_BROWSER_UA },
+      });
+      const links = capIndexLinks(await readResponseTextCapped(index, 2 * 1024 * 1024));
+      const alerts = [];
+      let failed = 0;
+      const queue = links.slice();
+      const workers = Array.from({ length: 6 }, async () => {
+        while (queue.length) {
+          const url = queue.shift();
+          try {
+            const alert = await fetchCapFile(url);
+            if (alert) alerts.push(alert);
+          } catch (error) {
+            failed += 1;
+            console.warn('[smn-alerts-proxy] CAP file failed:', url.split('/').pop(), error?.message || error);
+          }
+        }
+      });
+      await Promise.all(workers);
+      for (const url of _capFileCache.keys()) if (!links.includes(url)) _capFileCache.delete(url);
+      if (!alerts.length && links.length && failed === links.length) throw new Error('every CAP file failed');
+      return { generatedAt: Date.now(), count: alerts.length, linksFound: links.length, filesFailed: failed, alerts };
+    },
+  });
+}
+
+// rutas.ar road status (public scrape of Vialidad Nacional; 30 req/min limit upstream).
+const RUTAS_ESTADO_URL = 'https://rutas.ar/api/estado';
+function rutasEstadoProxy() {
+  return createSnapshotProxy({
+    name: 'rutas-estado-proxy',
+    route: '/api/rutas/estado',
+    ttlMs: 10 * 60_000,
+    async load() {
+      const response = await fetchWithTimeout(RUTAS_ESTADO_URL, { timeoutMs: 30_000, headers: { Accept: 'application/json' } });
+      const body = await readResponseJsonCapped(response, 8 * 1024 * 1024);
+      const tramos = normalizeTramos(body);
+      const sourceUpdated = tramos.reduce((max, t) => (t.sourceUpdated > max ? t.sourceUpdated : max), '');
+      return { generatedAt: Date.now(), count: tramos.length, sourceUpdated, tramos };
+    },
+  });
+}
+
+// INA "a5" river levels: daily station metadata (thresholds + last-obs time),
+// then observations for the active series every 15 min. Upstream is slow
+// (10–30 s, 60 s nginx cap), so ids are chunked and results merged into a
+// long-lived station map: a gauge keeps its last reading between refreshes.
+const INA_BASE = 'https://alerta.ina.gob.ar/a5/obs/puntual';
+const INA_META_TTL_MS = 24 * 60 * 60_000;
+const INA_ACTIVE_WINDOW_MS = 30 * 24 * 60 * 60_000;
+const INA_OBS_WINDOW_MS = 26 * 60 * 60_000;
+let _inaStations = new Map();
+let _inaMetaAt = 0;
+
+async function inaFetchJson(url, timeoutMs) {
+  const response = await fetchWithTimeout(url, { timeoutMs, headers: { Accept: 'application/json' } });
+  return readResponseJsonCapped(response, 16 * 1024 * 1024);
+}
+
+function inaRiversProxy() {
+  return createSnapshotProxy({
+    name: 'ina-rivers-proxy',
+    route: '/api/ina/rivers',
+    ttlMs: 15 * 60_000,
+    diskCacheFile: 'ina-rivers.json',
+    diskTtlMs: 15 * 60_000,
+    async load() {
+      const now = Date.now();
+      if (!_inaStations.size || now - _inaMetaAt > INA_META_TTL_MS) {
+        const since = new Date(now - INA_ACTIVE_WINDOW_MS).toISOString();
+        const url = `${INA_BASE}/series?var_id=2&proc_id=1&date_range_after=${encodeURIComponent(since)}`;
+        const fresh = normalizeSeriesRows(await inaFetchJson(url, 60_000));
+        if (!fresh.size) throw new Error('INA series list empty');
+        for (const [id, st] of fresh) {
+          const prev = _inaStations.get(id);
+          if (prev && prev.valueMs) { st.valueM = prev.valueM; st.valueMs = prev.valueMs; }
+        }
+        _inaStations = fresh;
+        _inaMetaAt = now;
+      }
+      const ids = activeSeriesIds(_inaStations, now - INA_ACTIVE_WINDOW_MS);
+      const timestart = new Date(now - INA_OBS_WINDOW_MS).toISOString();
+      const timeend = new Date(now + 60 * 60_000).toISOString();
+      let merged = 0;
+      let failedChunks = 0;
+      for (const chunk of chunkIds(ids, 230)) {
+        const url = `${INA_BASE}/observaciones?series_id=${chunk.join(',')}&timestart=${encodeURIComponent(timestart)}&timeend=${encodeURIComponent(timeend)}`;
+        try {
+          merged += mergeObservations(_inaStations, await inaFetchJson(url, 75_000));
+        } catch (error) {
+          failedChunks += 1;
+          console.warn('[ina-rivers-proxy] observations chunk failed:', error?.message || error);
+        }
+      }
+      const stations = serializeStations(_inaStations);
+      const withValue = stations.filter((s) => Number.isFinite(s.valueM)).length;
+      if (!withValue && failedChunks) throw new Error('INA observations unavailable');
+      console.log(`[ina-rivers-proxy] ${stations.length} gauges, ${withValue} with a reading (${merged} obs merged, ${failedChunks} chunk failures)`);
+      return { generatedAt: now, count: stations.length, withValue, failedChunks, stations };
+    },
+  });
+}
+
 function gbfsProxy() {
   return {
     name: 'gbfs-proxy',
@@ -3402,10 +4211,23 @@ function gbfsProxy() {
           }
 
           const controller = new AbortController();
+          // Ecobici lives behind API Transporte: the server appends its own
+          // client credentials; the browser never sees them.
+          let fetchUrl = upstreamUrl;
+          if (upstreamUrl.hostname === BA_TRANSPORTE_HOST) {
+            if (!hasBaTransporteCredentials()) {
+              res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+              res.end(JSON.stringify({ error: 'no_key', message: 'BA_TRANSPORTE_CLIENT_ID / BA_TRANSPORTE_CLIENT_SECRET not configured' }));
+              return;
+            }
+            const mapped = new URL(upstreamUrl.toString());
+            mapped.pathname = baEcobiciUpstreamPath(upstreamUrl.pathname);
+            fetchUrl = withBaTransporteCredentials(mapped);
+          }
           const timeoutId = setTimeout(() => controller.abort(), GBFS_PROXY_TIMEOUT_MS);
           let upstream;
           try {
-            upstream = await fetch(upstreamUrl.toString(), {
+            upstream = await fetch(fetchUrl.toString(), {
               method: 'GET',
               headers: {
                 Accept: 'application/json',
@@ -4168,6 +4990,99 @@ async function loadTflSourcesFromOpenData() {
   }
 }
 
+// ── Windy Webcams (BYOK) ────────────────────────────────────────────────────
+// Server-side only: WINDY_API_KEY never reaches the browser. Windy preview
+// image URLs carry a token that expires (10 min on the free tier), so every
+// source keeps its `windyId` and the frame/media proxies re-resolve a fresh
+// URL through a short per-webcam cache before fetching the image.
+const WINDY_MAX_RESPONSE_BYTES = 4 * 1024 * 1024;
+const WINDY_PREVIEW_TTL_MS = 5 * 60 * 1000;
+const WINDY_FETCH_TIMEOUT_MS = 15_000;
+const WINDY_MAX_PAGES = 40;
+const _windyPreviewCache = new Map(); // windyId -> { url, at }
+
+function windyApiKey() {
+  return String(process.env.WINDY_API_KEY || '').trim();
+}
+
+async function windyFetchJson(url) {
+  const key = windyApiKey();
+  if (!key) return null;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), WINDY_FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'x-windy-api-key': key,
+        Accept: 'application/json',
+        'User-Agent': 'gods-eye-view-cctv-proxy/1.0',
+      },
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      console.warn(`[CCTV] Windy HTTP ${response.status} for ${String(url).split('?')[0]}`);
+      return null;
+    }
+    return await readResponseJsonCapped(response, WINDY_MAX_RESPONSE_BYTES);
+  } catch (error) {
+    console.warn('[CCTV] Windy fetch failed:', error?.message || error);
+    return null;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+/**
+ * Load Windy webcams for the configured countries (default Argentina) as CCTV
+ * sources. Silent no-op without WINDY_API_KEY.
+ */
+async function loadWindySourcesFromApi() {
+  if (!windyApiKey()) return [];
+  const countries = String(process.env.CCTV_WINDY_COUNTRIES || WINDY_DEFAULT_COUNTRIES).trim() || WINDY_DEFAULT_COUNTRIES;
+  const categories = String(process.env.CCTV_WINDY_CATEGORIES || '').trim();
+  const maxRaw = Number(process.env.CCTV_WINDY_MAX_SOURCES || WINDY_DEFAULT_MAX_SOURCES);
+  const maxCount = Number.isFinite(maxRaw)
+    ? Math.max(1, Math.min(1000, Math.floor(maxRaw)))
+    : WINDY_DEFAULT_MAX_SOURCES;
+  const out = [];
+  let offset = 0;
+  let total = Infinity;
+  let pages = 0;
+  while (out.length < maxCount && offset < total && pages < WINDY_MAX_PAGES) {
+    pages += 1;
+    const body = await windyFetchJson(windyListUrl({ countries, categories, offset, limit: WINDY_PAGE_LIMIT }));
+    if (!body) break;
+    const page = windyListToSources(body);
+    total = page.total;
+    const rawCount = Array.isArray(body?.webcams) ? body.webcams.length : page.sources.length;
+    if (!rawCount) break;
+    for (const source of page.sources) {
+      out.push(source);
+      if (out.length >= maxCount) break;
+    }
+    offset += WINDY_PAGE_LIMIT;
+  }
+  const now = Date.now();
+  for (const source of out) _windyPreviewCache.set(source.windyId, { url: source.url, at: now });
+  console.log(`[CCTV] Loaded Windy webcam sources: ${out.length} (countries=${countries}${categories ? `, categories=${categories}` : ''})`);
+  return out;
+}
+
+/** Fresh (token-valid) preview URL for one Windy webcam, cached briefly. */
+async function resolveWindyPreviewUrl(windyId) {
+  const id = String(windyId || '').trim();
+  if (!id) return '';
+  const cached = _windyPreviewCache.get(id);
+  if (cached && Date.now() - cached.at < WINDY_PREVIEW_TTL_MS) return cached.url;
+  const body = await windyFetchJson(windyDetailUrl(id));
+  const url = windyPreviewUrl(body);
+  if (url) {
+    _windyPreviewCache.set(id, { url, at: Date.now() });
+    return url;
+  }
+  return cached?.url || '';
+}
+
 /**
  * Normalize a raw CCTV source item into a canonical shape with safe defaults.
  *
@@ -4177,6 +5092,7 @@ async function loadTflSourcesFromOpenData() {
 function normalizeSourceItem(item) {
   return {
     id: String(item.id || '').trim(),
+    windyId: typeof item.windyId === 'string' ? item.windyId : '',
     name: String(item.name || item.id || '').trim(),
     city: String(item.city || ''),
     cityId: String(item.cityId || ''),
@@ -4258,8 +5174,15 @@ async function refreshCctvSources() {
     fromCaltrans = caltransResult.status === 'fulfilled' ? caltransResult.value : [];
     fromTfl = tflResult.status === 'fulfilled' ? tflResult.value : [];
   }
+  // Windy (BYOK) loads whenever a key is present, independent of the live-pack gate.
+  let fromWindy = [];
+  try {
+    fromWindy = await loadWindySourcesFromApi();
+  } catch (error) {
+    console.warn('[CCTV] Windy pack failed:', error?.message || error);
+  }
   // Live sources first so file/env overrides win on duplicate IDs (Map last-write).
-  const merged = [...fromAustin, ...fromCaltrans, ...fromTfl, ...fromFile, ...fromEnv];
+  const merged = [...fromAustin, ...fromCaltrans, ...fromTfl, ...fromWindy, ...fromFile, ...fromEnv];
 
   // Deduplicate by camera ID (last-write wins because of Map.set)
   const byId = new Map();
@@ -4618,6 +5541,11 @@ function cctvProxy() {
                 mountHeightM: source.mountHeightM,
                 groundElevationM: source.groundElevationM,
                 feedType: normalizeFeedType(source.feedType),
+                // Video feeds expose their public stream URL so the browser can
+                // play HLS directly (relative playlist segments cannot be proxied).
+                streamUrl: isVideoFeedType(normalizeFeedType(source.feedType)) && /^https?:\/\//i.test(source.url || '')
+                  ? source.url
+                  : '',
                 sourceKind: source.sourceKind || (source.url ? 'configured' : 'fallback'),
                 poseSource: source.poseSource,
                 license: source.license,
@@ -4646,7 +5574,9 @@ function cctvProxy() {
           if (url.pathname.startsWith('/media/')) {
             const cameraId = decodeURIComponent(url.pathname.replace('/media/', '').trim()) || 'camera';
             const source = sourceById.get(cameraId);
-            const mediaUrl = source?.url || '';
+            const mediaUrl = (source?.windyId ? await resolveWindyPreviewUrl(source.windyId) : '')
+              || source?.url
+              || '';
             const feedType = normalizeFeedType(source?.feedType || 'image');
 
             if (!mediaUrl || !/^https?:\/\//i.test(mediaUrl)) {
@@ -4732,8 +5662,10 @@ function cctvProxy() {
 
           // Only use server-registered upstream URLs — never accept client-supplied URLs
           // (prevents SSRF via ?upstream= query parameter)
+          const windyFreshUrl = source?.windyId ? await resolveWindyPreviewUrl(source.windyId) : '';
           const upstreamCandidate =
-            source?.snapshotUrl
+            windyFreshUrl
+            || source?.snapshotUrl
             || (!isVideoFeedType(normalizeFeedType(source?.feedType)) ? source?.url : '');
 
           const upstreamImage = await fetchCctvImageFromUpstream(upstreamCandidate);
@@ -5781,6 +6713,19 @@ const GEV_REALTIME_TOOLS = [
             'cctv',
             'radio',
             'bikeshare',
+            'colectivos',
+            'smn-weather',
+            'cammesa-grid',
+            'local-caba-radares',
+            'rainviewer-radar',
+            'conae-fires',
+            'edesur-outages',
+            'fuel-prices',
+            'local-pba-comisarias',
+            'local-tren-estaciones',
+            'smn-alerts',
+            'rutas-estado',
+            'ina-rivers',
             'ais-live-vessels',
             'local-datacenters',
             'local-dams',
@@ -5812,6 +6757,19 @@ const GEV_REALTIME_TOOLS = [
             'cctv',
             'radio',
             'bikeshare',
+            'colectivos',
+            'smn-weather',
+            'cammesa-grid',
+            'local-caba-radares',
+            'rainviewer-radar',
+            'conae-fires',
+            'edesur-outages',
+            'fuel-prices',
+            'local-pba-comisarias',
+            'local-tren-estaciones',
+            'smn-alerts',
+            'rutas-estado',
+            'ina-rivers',
             'ais-live-vessels',
             'local-datacenters',
             'local-dams',
@@ -7759,6 +8717,17 @@ export default defineConfig(({ mode }) => {
       trackBackfillProxies(),
       openAiRealtimeProxy(),
       googlePlacesContextProxy(),
+      baColectivosProxy(),
+      smnProxy(),
+      cammesaProxy(),
+      rainviewerProxy(),
+      bahiaBusesProxy(),
+      conaeProxy(),
+      edesurProxy(),
+      fuelPricesProxy(),
+      smnAlertsProxy(),
+      rutasEstadoProxy(),
+      inaRiversProxy(),
       keySetupEndpoint(),
     ],
     server: {

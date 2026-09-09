@@ -119,6 +119,21 @@ function bcycleEntry({ id, city, centerLat, centerLon, systemId, loadRadiusKm = 
  */
 const RAW_GBFS_CITY_REGISTRY = [
   {
+    // Buenos Aires Ecobici — GBFS documents served by GCBA "API Transporte".
+    // The dev-server GBFS proxy appends the server-held client credentials
+    // (BA_TRANSPORTE_CLIENT_ID / _SECRET); the feed answers 503 until then.
+    id: 'buenos-aires-ecobici',
+    city: 'Buenos Aires, AR',
+    centerLat: -34.6037,
+    centerLon: -58.3816,
+    loadRadiusKm: 60,
+    // Canonical GBFS filenames keep the client validator happy; the proxy maps
+    // them to the camelCase paths API Transporte actually serves.
+    stationInformationUrl: 'https://apitransporte.buenosaires.gob.ar/ecobici/gbfs/station_information.json',
+    stationStatusUrl: 'https://apitransporte.buenosaires.gob.ar/ecobici/gbfs/station_status.json',
+    provider: 'Ecobici (GCBA)',
+  },
+  {
     id: 'nyc-citibike',
     city: 'New York, NY',
     centerLat: 40.7484,
@@ -515,6 +530,13 @@ let _loading = false;
 let _loadingOps = 0;
 /** Most recent error message string, or null. */
 let _error = null;
+/**
+ * Cities whose feed answered "key required" (credential-gated operators such
+ * as Buenos Aires Ecobici). Skipped by proximity activation until the layer is
+ * re-enabled, so a missing optional key never reads as a layer fault.
+ * @type {Set<string>}
+ */
+let _keyRequiredCityIds = new Set();
 /** Whether the MAX_TOTAL_POINTS cap warning has already been logged. */
 let _limitWarned = false;
 
@@ -780,6 +802,25 @@ async function fetchGbfsJson(upstreamUrl, { signal } = {}) {
   });
 
   if (!response.ok) {
+    // A credential-gated feed (Buenos Aires Ecobici behind API Transporte)
+    // answers 503 {error:'no_key'} until its key is configured. That is a
+    // setup state for ONE city, not a feed fault for the whole layer.
+    if (response.status === 503) {
+      let body = null;
+      try { body = await response.json(); } catch { body = null; }
+      if (signal?.aborted) {
+        // The body read was cancelled (city deactivated mid-flight): surface
+        // it as the abort it is, not as a feed fault.
+        const aborted = new Error('GBFS request aborted');
+        aborted.name = 'AbortError';
+        throw aborted;
+      }
+      if (body?.error === 'no_key' || body?.error === 'invalid_key') {
+        const error = new Error(`GBFS key required (${body.error})`);
+        error.name = 'GbfsKeyRequiredError';
+        throw error;
+      }
+    }
     throw new Error(`GBFS HTTP ${response.status}`);
   }
 
@@ -1376,6 +1417,15 @@ async function activateCity(cityId, generation) {
     _error = null;
   } catch (error) {
     if (error?.name === 'AbortError') return;
+    if (error?.name === 'GbfsKeyRequiredError') {
+      // Skip this city quietly; other cities and the layer chip stay nominal.
+      // Remembered so proximity changes don't retry it until re-enable.
+      console.info(`[Data:Bikeshare] ${cityId} skipped: ${error.message} (POWER UP → BA TRANSPORTE)`);
+      _keyRequiredCityIds.add(cityId);
+      deactivateCity(cityId);
+      _activeCityIds.delete(cityId);
+      return;
+    }
     console.warn(`[Data:Bikeshare] ${cityId} activate error:`, error);
     _error = 'GBFS fetch error';
     deactivateCity(cityId);
@@ -1407,6 +1457,7 @@ async function runProximityCheck() {
 
   // Diff active set against newly computed in-range set
   const nextActive = computeInRangeCities(center);
+  for (const cityId of _keyRequiredCityIds) nextActive.delete(cityId);
   for (const cityId of _activeCityIds) {
     if (!nextActive.has(cityId)) {
       deactivateCity(cityId);
@@ -1478,6 +1529,7 @@ const bikeshareLayer = {
     _proximityGeneration = 0;
 
     _activeCityIds = new Set();
+    _keyRequiredCityIds = new Set();
     _cityRuntime = new Map();
     _stationInfoCache = new Map();
     _statusCache = new Map();
@@ -1580,6 +1632,13 @@ const bikeshareLayer = {
         applyStatusToPoints(cityId, statusMap);
       } catch (error) {
         if (error?.name === 'AbortError') return;
+        if (error?.name === 'GbfsKeyRequiredError') {
+          // Credential-gated city (Ecobici): drop it quietly, keep the chip nominal.
+          _keyRequiredCityIds.add(cityId);
+          deactivateCity(cityId);
+          _activeCityIds.delete(cityId);
+          return;
+        }
         console.warn(`[Data:Bikeshare] ${cityId} status update error:`, error);
         _error = 'GBFS status update failed';
       }

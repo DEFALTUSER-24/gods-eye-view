@@ -279,6 +279,19 @@ Thirteen layers and map sources. **Eleven have a keyless path.** Some offer addi
 | 🔥 **Active Fires** | Live NASA FIRMS detections, trailing 24h | NASA FIRMS | 🟡 |
 | 🚀 **Space Missions** | Rolling 30-day launches with payload, stage, and recovery detail | Launch Library 2 | 🟢 (🟡 optional token raises the allowance) |
 | 🎖️ **Mapped Installations** | Viewport-bounded military-site context from community mapping — incomplete by nature, and labeled that way | OpenStreetMap | 🟢 |
+| 🚌 **Colectivos (AMBA + Bahía Blanca)** | Live bus GPS colored per line, 30 s polling. Bahía Blanca (24 lines) is keyless; AMBA needs the GCBA key | GCBA API Transporte · GPS Bahía | 🟢 Bahía Blanca · 🟡 AMBA needs free `client_id`/`client_secret` |
+| 🌡️ **Clima SMN (Argentina)** | ~120 weather stations — temperature, wind, humidity, pressure, hourly | SMN open data | 🟢 |
+| ⚡ **Red Eléctrica (Argentina)** | Live electricity demand per region + national generation mix, 5-minute samples | CAMMESA | 🟢 |
+| 📸 **Fotomultas CABA** | 224 fixed enforcement cameras in Buenos Aires City (bundled snapshot) | Buenos Aires Ciudad open data | 🟢 |
+| 🔥 **Focos de calor CONAE** | GOES-19 fire hotspots over Argentina, last 24 h, colored by age | CONAE | 🟢 |
+| 💡 **Cortes de luz Edesur** | Programmed and active power outages in south CABA / GBA, sized by customers | Edesur | 🟢 |
+| ⛽ **Precios de nafta** | Every reporting service station with its latest prices (SUPER, PREMIUM, DIESEL, GNC) | Secretaría de Energía | 🟢 |
+| 🚓 **Comisarías PBA** / 🚆 **Estaciones de tren** | Bundled snapshots: 2 173 police stations in Provincia de Buenos Aires, 464 train stations with service | Min. Seguridad PBA / IDE Transporte | 🟢 |
+| 🌊 **Ríos INA (alturas)** | ~460 active river gauges with the latest height vs. official alert / evacuation levels — Río de la Plata, Paraná, Uruguay, Salado, Limay… | INA (Prefectura, SHN, provincial networks) | 🟢 |
+| ⚠️ **Alertas meteorológicas SMN** | Official CAP alert polygons (storms, wind, zonda, snow, rain) with validity windows | SMN | 🟢 |
+| 🛣️ **Estado de rutas nacionales** | Every national route colored by live status (habilitada / restringida / corte parcial / corte total) | Vialidad Nacional via rutas.ar | 🟢 |
+| 🌧️ **Radar de lluvia** | Animated global precipitation radar (last ~80 min, 10-minute frames) draped on the globe | RainViewer | 🟢 |
+| 🛰️ **ARGENTINA satellite class** | SAOCOM, ARSAT, Satellogic ÑuSat, BugSat highlighted inside the Satellites layer | CelesTrak | 🟢 |
 
 **The basemap ladder — what each tier buys you:**
 
@@ -396,6 +409,8 @@ Six keys. Four have a free tier, and the two 🔴 ones are metered:
 |---|-----|-----|--------|
 | 🟡 | **OpenSky** | ✈️ More flight-polling credits (🟢 anonymous works without) | [opensky-network.org](https://opensky-network.org) |
 | 🟡 | **Launch Library 2** | 🚀 Higher space-missions request allowance (🟢 works without) | [thespacedevs.com](https://thespacedevs.com) |
+| 🟡 | **BA Transporte** | 🚌 **Colectivos** layer — live Buenos Aires (AMBA) bus GPS — plus Ecobici stations in Bikeshare | [api-transporte.buenosaires.gob.ar](https://api-transporte.buenosaires.gob.ar/registro) — free `client_id` + `client_secret`, server-side only |
+| 🟡 | **Windy Webcams** | 📹 Adds every public Windy webcam in Argentina (or `CCTV_WINDY_COUNTRIES`) to the CCTV layer | [api.windy.com/keys](https://api.windy.com/keys) — free Webcams API key, server-side only |
 
 Add these if you need higher polling allowances.
 

@@ -1,0 +1,42 @@
+[
+  {
+    "id": "mendoza-plaza-independencia",
+    "name": "Plaza Independencia",
+    "city": "Mendoza",
+    "cityId": "mendoza",
+    "provider": "Ciudad de Mendoza (datarhei Restreamer)",
+    "sourceKind": "configured",
+    "feedType": "hls",
+    "url": "https://camarasmunicapital.ciudaddemendoza.gov.ar/memfs/96f0de54-8c98-4395-8782-4b145d6bb4ae.m3u8",
+    "snapshotUrl": "https://camarasmunicapital.ciudaddemendoza.gov.ar/memfs/96f0de54-8c98-4395-8782-4b145d6bb4ae.jpg",
+    "lat": -32.8895,
+    "lon": -68.8458,
+    "headingDeg": 270,
+    "pitchDeg": -15,
+    "fovDeg": 60,
+    "rangeM": 300,
+    "mountHeightM": 12,
+    "groundElevationM": 760,
+    "license": "Public stream published by Ciudad de Mendoza"
+  },
+  {
+    "id": "mendoza-terraza-municipal",
+    "name": "Terraza Municipal",
+    "city": "Mendoza",
+    "cityId": "mendoza",
+    "provider": "Ciudad de Mendoza (datarhei Restreamer)",
+    "sourceKind": "configured",
+    "feedType": "hls",
+    "url": "https://camarasmunicapital.ciudaddemendoza.gov.ar/memfs/5a03c0ce-4e27-43c2-8066-981d9ed228e6.m3u8",
+    "snapshotUrl": "https://camarasmunicapital.ciudaddemendoza.gov.ar/memfs/5a03c0ce-4e27-43c2-8066-981d9ed228e6.jpg",
+    "lat": -32.8908,
+    "lon": -68.8405,
+    "headingDeg": 300,
+    "pitchDeg": -10,
+    "fovDeg": 70,
+    "rangeM": 2000,
+    "mountHeightM": 40,
+    "groundElevationM": 760,
+    "license": "CC BY 4.0 (per oembed) - Ciudad de Mendoza"
+  }
+]

@@ -18,6 +18,9 @@
 # OPENSKY_CLIENT_ID=
 # OPENSKY_CLIENT_SECRET=
 # LL2_API_TOKEN=
+# BA_TRANSPORTE_CLIENT_ID=
+# BA_TRANSPORTE_CLIENT_SECRET=
+# WINDY_API_KEY=
 
 # Keep sharing off. The current supported Pinokio release logs successful
 # tunnel-login passcodes, so the launcher refuses to create a tunnel.

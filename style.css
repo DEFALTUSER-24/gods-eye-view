@@ -9520,3 +9520,19 @@ body.scene-playback-mode #key-setup {
   border-color: rgba(255, 170, 150, 0.65);
   outline: none;
 }
+
+/* DATA LAYERS · country group header (Argentina pack) */
+.data-toggle-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 4px;
+  padding: 4px 6px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.10);
+  color: var(--accent, #7fd3ff);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+.data-toggle-group .data-toggle-group-flag { font-size: 12px; }

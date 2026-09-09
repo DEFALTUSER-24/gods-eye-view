@@ -30,6 +30,9 @@ export const CREDENTIALS = Object.freeze([
     )),
   },
   { name: 'LL2_API_TOKEN', label: 'Launch Library 2', keychain: [] },
+  { name: 'BA_TRANSPORTE_CLIENT_ID', label: 'BA Transporte client ID', keychain: [['ba-transporte', 'client_id']] },
+  { name: 'BA_TRANSPORTE_CLIENT_SECRET', label: 'BA Transporte client secret', keychain: [['ba-transporte', 'client_secret']] },
+  { name: 'WINDY_API_KEY', label: 'Windy webcams', keychain: [['windy-api', 'api-key']] },
 ]);
 
 export function isConfiguredValue(value) {
@@ -204,7 +207,9 @@ export function formatSetupReport(report, { readyMessage } = {}) {
     '',
     'Configured providers:',
     ...CREDENTIALS.map((spec) => {
-      const state = report.credentials[spec.name];
+      // A report built against an older credential list simply lacks the
+      // newer optional providers; render them as not configured.
+      const state = report.credentials?.[spec.name] || { configured: false };
       return state.configured
         ? `  [OK] ${spec.label} (${state.source})`
         : `  [--] ${spec.label}`;

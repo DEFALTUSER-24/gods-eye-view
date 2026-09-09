@@ -94,6 +94,22 @@ export const KEY_SETUP_KEYS = Object.freeze([
     envVars: Object.freeze(['LL2_API_TOKEN']),
     tier: 'free',
   }),
+  Object.freeze({
+    id: 'ba-transporte',
+    title: 'BA TRANSPORTE',
+    unlocks: 'Live Buenos Aires buses (Colectivos) + Ecobici stations',
+    getUrl: 'https://api-transporte.buenosaires.gob.ar/registro',
+    envVars: Object.freeze(['BA_TRANSPORTE_CLIENT_ID', 'BA_TRANSPORTE_CLIENT_SECRET']),
+    tier: 'free',
+  }),
+  Object.freeze({
+    id: 'windy',
+    title: 'WINDY WEBCAMS',
+    unlocks: 'Hundreds of public webcams in the CCTV layer (Argentina by default)',
+    getUrl: 'https://api.windy.com/keys',
+    envVars: Object.freeze(['WINDY_API_KEY']),
+    tier: 'free',
+  }),
 ]);
 
 /** Hostnames a Provider Settings request may arrive under or originate from. */

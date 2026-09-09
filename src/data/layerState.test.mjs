@@ -155,8 +155,8 @@ function encode(state) {
 
 test('production registry is exact, canonical, and rejects incomplete contracts', async () => {
   assert.equal(validateLayerStateRegistry(), true);
-  assert.equal(REGISTERED_LAYER_IDS.length, 16);
-  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 16);
+  assert.equal(REGISTERED_LAYER_IDS.length, 29);
+  assert.equal(new Set(REGISTERED_LAYER_IDS).size, 29);
   assert.deepEqual(REGISTERED_LAYER_IDS, [...REGISTERED_LAYER_IDS].sort());
   assert.throws(
     () => validateLayerStateRegistry([...LAYER_STATE_REGISTRY, LAYER_STATE_REGISTRY[0]]),
@@ -223,8 +223,9 @@ test('v2 codec distinguishes absent from empty and keeps canonical deterministic
 });
 
 test('unknown enabled-layer tokens reject the payload instead of becoming an empty set', () => {
-  assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=z')), null);
-  assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=c.z')), null);
+  // every letter is taken; '9' is a valid token no registry entry uses (see LAYER_STATE_REGISTRY).
+  assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=9')), null);
+  assert.equal(decodeLayerStateParams(new URLSearchParams('v=2&l=c.9')), null);
 });
 
 test('unknown and forbidden option fields are ignored while missing options use codec defaults', () => {

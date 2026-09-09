@@ -1156,7 +1156,11 @@ function buildCatalogFromSources(rawSources) {
       provider: String(source.provider || seed?.provider || 'Configured CCTV Source'),
       sourceKind: String(source.sourceKind || source.kind || (source.url ? 'configured' : 'seed')).toLowerCase(),
       feedType,
-      feedConfigured: typeof source.url === 'string' && !!source.url.trim(),
+      feedConfigured: (typeof source.url === 'string' && !!source.url.trim())
+        || (typeof source.streamUrl === 'string' && !!source.streamUrl.trim()),
+      // Public HLS/MP4 URL (video feeds only) — the browser plays it directly
+      // through hls.js so playlists with relative segment URLs work.
+      streamUrl: typeof source.streamUrl === 'string' ? source.streamUrl.trim() : '',
       lat,
       lon,
       headingDeg,
@@ -1499,6 +1503,57 @@ function mediaUrlFor(camera) {
   return `${MEDIA_ENDPOINT}/${encodeURIComponent(camera.id)}?ts=${Math.floor(Date.now() / 15000)}`;
 }
 
+/** Lazily loaded hls.js module (only when an HLS camera is opened). */
+let _hlsModulePromise = null;
+function loadHls() {
+  if (!_hlsModulePromise) {
+    _hlsModulePromise = import('hls.js').then((mod) => mod.default || mod).catch((error) => {
+      console.warn('[CCTV] hls.js unavailable:', error?.message || error);
+      _hlsModulePromise = null;
+      return null;
+    });
+  }
+  return _hlsModulePromise;
+}
+
+/**
+ * Point a <video> at the camera's feed. HLS playlists carry RELATIVE segment
+ * URLs, so they cannot go through the same-origin media proxy; Chrome also has
+ * no native HLS. For `hls` feeds with a public stream URL the browser plays
+ * the upstream directly through hls.js (CORS permitting) and falls back to
+ * native playback (Safari) or the proxied URL otherwise.
+ */
+function attachVideoSource(runtime, video, camera) {
+  const feedType = normalizeFeedType(camera.feedType);
+  const streamUrl = String(camera.streamUrl || '').trim();
+  if (feedType === 'hls' && /^https?:\/\//i.test(streamUrl)) {
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = streamUrl;
+      return;
+    }
+    loadHls().then((Hls) => {
+      if (!Hls || !Hls.isSupported()) {
+        video.src = mediaUrlFor(camera);
+        return;
+      }
+      if (runtime.hls || runtime.video !== video) return; // torn down meanwhile
+      const hls = new Hls({ enableWorker: true, lowLatencyMode: false, backBufferLength: 30 });
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (!data?.fatal) return;
+        console.warn(`[CCTV] hls.js fatal ${data.type} on ${camera.id}: ${data.details}`);
+        if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+        else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+        else { hls.destroy(); runtime.hls = null; }
+      });
+      hls.loadSource(streamUrl);
+      hls.attachMedia(video);
+      runtime.hls = hls;
+    });
+    return;
+  }
+  video.src = mediaUrlFor(camera);
+}
+
 /**
  * Paints a placeholder frame onto the projection canvas when no live feed
  * image or video is available. Shows camera name, city, and status text
@@ -1683,6 +1738,7 @@ function createProjectionRuntime(record) {
     ctx,
     image: null,
     video: null,
+    hls: null,
     planeEntity: null,
     cameraId: String(record.camera.id),
     labelPosition: new Cesium.Cartesian3(),
@@ -1719,10 +1775,10 @@ function createProjectionRuntime(record) {
     video.playsInline = true;
     video.crossOrigin = 'anonymous';
     video.preload = 'auto';
-    video.src = mediaUrlFor(record.camera);
     video.addEventListener('canplay', () => {
       video.play().catch(() => {});
     });
+    attachVideoSource(runtime, video, record.camera);
     runtime.video = video;
   } else {
     const img = new Image();
@@ -1780,6 +1836,10 @@ function ensureProjectionRuntime(record) {
  */
 function destroyProjectionRuntime(runtime) {
   if (!runtime) return;
+  if (runtime.hls) {
+    try { runtime.hls.destroy(); } catch { /* already gone */ }
+    runtime.hls = null;
+  }
   if (runtime.video) {
     runtime.video.pause();
     runtime.video.removeAttribute('src');

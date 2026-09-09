@@ -129,7 +129,105 @@ export const DATA_CREDITS = [
   },
   {
     key: 'gbfs',
-    html: 'Bikeshare availability: GBFS operator feeds (e.g. Austin BCycle)',
+    html: 'Bikeshare availability: GBFS operator feeds (e.g. Austin BCycle, Buenos Aires Ecobici via API Transporte)',
+  },
+  {
+    key: 'ba-colectivos',
+    html:
+      'Buenos Aires bus positions (Colectivos): ' +
+      '<a href="https://api-transporte.buenosaires.gob.ar" target="_blank" rel="noopener">API Transporte — Gobierno de la Ciudad de Buenos Aires</a>',
+  },
+  {
+    key: 'windy-webcams',
+    html:
+      'Webcams (Windy pack): ' +
+      '<a href="https://www.windy.com/webcams" target="_blank" rel="noopener">Windy Webcams</a> — each frame links to its broadcaster',
+  },
+  {
+    key: 'smn',
+    html:
+      'Clima (Argentina): ' +
+      '<a href="https://www.smn.gob.ar/descarga-de-datos" target="_blank" rel="noopener">Servicio Meteorológico Nacional — datos abiertos</a>',
+  },
+  {
+    key: 'cammesa',
+    html:
+      'Red eléctrica (Argentina): ' +
+      '<a href="https://cammesaweb.cammesa.com" target="_blank" rel="noopener">CAMMESA — demanda y generación en tiempo real</a>',
+  },
+  {
+    key: 'rainviewer',
+    html:
+      'Precipitation radar: ' +
+      '<a href="https://www.rainviewer.com/api.html" target="_blank" rel="noopener">RainViewer</a> (public API; coverage limited to ingested national radars)',
+  },
+  {
+    key: 'conae',
+    html:
+      'Focos de calor: ' +
+      '<a href="https://focosdecalor.conae.gov.ar" target="_blank" rel="noopener">CONAE — Comisión Nacional de Actividades Espaciales (GOES-19)</a>',
+  },
+  {
+    key: 'edesur',
+    html:
+      'Cortes de luz: ' +
+      '<a href="https://www.edesur.com.ar" target="_blank" rel="noopener">Edesur — reporte público de cortes</a>',
+  },
+  {
+    key: 'energia-surtidor',
+    html:
+      'Precios de combustibles: ' +
+      '<a href="http://datos.energia.gob.ar/dataset/precios-en-surtidor" target="_blank" rel="noopener">Secretaría de Energía — precios en surtidor (Res. 314/2016)</a> (CC-BY)',
+  },
+  {
+    key: 'pba-seguridad',
+    html:
+      'Comisarías + radares PBA: ' +
+      '<a href="https://gis.mseg.gba.gov.ar/server/rest/services" target="_blank" rel="noopener">Ministerio de Seguridad de la Provincia de Buenos Aires</a> / ' +
+      '<a href="https://github.com/datos-provincia-abierta/Radares" target="_blank" rel="noopener">Datos Provincia Abierta</a>',
+  },
+  {
+    key: 'ide-transporte',
+    html:
+      'Estaciones ferroviarias: ' +
+      '<a href="https://ide.transporte.gob.ar" target="_blank" rel="noopener">IDE Transporte — Ministerio de Transporte de la Nación</a> (CC-BY)',
+  },
+  {
+    key: 'ina',
+    html:
+      'Alturas de ríos: ' +
+      '<a href="https://alerta.ina.gob.ar" target="_blank" rel="noopener">Instituto Nacional del Agua — Sistema de Información y Alerta Hidrológico</a> (datos de Prefectura Naval, SHN y redes provinciales)',
+  },
+  {
+    key: 'smn-cap',
+    html:
+      'Alertas meteorológicas: ' +
+      '<a href="https://www.smn.gob.ar/alertas" target="_blank" rel="noopener">Servicio Meteorológico Nacional — feed CAP</a>',
+  },
+  {
+    key: 'vialidad',
+    html:
+      'Red vial y estado de rutas: ' +
+      '<a href="https://www.argentina.gob.ar/transporte/vialidad-nacional/estado-de-rutas" target="_blank" rel="noopener">Vialidad Nacional</a> via ' +
+      '<a href="https://rutas.ar" target="_blank" rel="noopener">rutas.ar</a>',
+  },
+  {
+    key: 'gps-bahia',
+    html:
+      'Colectivos Bahía Blanca: ' +
+      '<a href="https://www.gpsbahia.com.ar" target="_blank" rel="noopener">GPS Bahía — Municipio de Bahía Blanca</a> (unofficial feed)',
+  },
+  {
+    key: 'caba-radares',
+    html:
+      'Fotomultas CABA: ' +
+      '<a href="https://data.buenosaires.gob.ar/dataset/camaras-fijas-control-vehicular" target="_blank" rel="noopener">Buenos Aires Ciudad — data.buenosaires.gob.ar</a> (CC-BY-2.5-AR)',
+  },
+  {
+    key: 'mendoza-cctv',
+    html:
+      'CCTV (Mendoza): ' +
+      '<a href="https://camarasmunicapital.ciudaddemendoza.gov.ar" target="_blank" rel="noopener">Ciudad de Mendoza — cámaras públicas</a>',
   },
   {
     key: 'radio-browser',
