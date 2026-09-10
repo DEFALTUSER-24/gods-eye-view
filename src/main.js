@@ -30,6 +30,7 @@ import militaryInstallationsLayer from './data/militaryInstallations.js';
 import militaryAwarenessLayer from './data/militaryAwareness.js';
 import localDataLayers, { cabaPoiLayer } from './data/localLayers.js';
 import { initCabaPoiFilter } from './cabaPoiFilter.js';
+import { initStreetViewButton } from './streetViewLink.js';
 import { initContextMenu } from './contextMenu.js';
 import { LAYER_STATE_REGISTRY } from './data/layerState.js';
 import { registerDataCredits } from './data/dataCredits.js';
@@ -147,6 +148,8 @@ async function init() {
     // expandable bottom-left credit lightbox (showOnScreen=false), so they never
     // clutter the on-globe line. See docs/pre-ship-audit-2026-07-01.md H11.
     registerDataCredits(viewer);
+    // LOCATION toolbar: open Google Street View at the point under the view centre.
+    initStreetViewButton(viewer);
 
     // Hide Cesium's default globe — Google Photorealistic 3D Tiles provide their own
     // globe at all LODs (street level → orbital). The default globe's 2D imagery
