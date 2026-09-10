@@ -9561,19 +9561,6 @@ body.scene-playback-mode #key-setup {
 }
 .data-source-link:hover { opacity: 1; }
 
-/* LOCATION toolbar · Street View shortcut */
-.location-toolbar-btn {
-  display: inline-flex; align-items: center; gap: 5px;
-  margin-left: auto; margin-right: 6px;
-  padding: 3px 9px; border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-secondary, #9fb3c4);
-  font: inherit; font-size: 10px; letter-spacing: 0.12em; cursor: pointer;
-}
-.location-toolbar-btn:hover { background: rgba(255, 255, 255, 0.1); color: var(--text-primary, #eef4f8); }
-.location-toolbar-btn.shake { animation: sv-shake 0.35s ease; }
-@keyframes sv-shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 
 /* Right-click context menu (globe + layer features) */
 .gev-context-menu {

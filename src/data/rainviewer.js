@@ -19,7 +19,10 @@ export const RAINVIEWER_FRAME_MS = 650;
 export const RAINVIEWER_HOLD_LAST_MS = 1600;
 export const RAINVIEWER_ALPHA = 0.78;
 export const RAINVIEWER_COLOR_SCHEME = 2; // "Universal Blue"
-export const RAINVIEWER_MAX_LEVEL = 10;
+// RainViewer serves radar tiles up to zoom 7 (measured 2026-09-10); any deeper
+// request returns a grey "Zoom Level Not Supported" placeholder that tiles the
+// map with boxes when zoomed in. Cesium upsamples level-7 tiles below that.
+export const RAINVIEWER_MAX_LEVEL = 7;
 
 /** Build a Cesium tile template for one RainViewer frame (pure). */
 export function frameTileTemplate(host, framePath, { color = RAINVIEWER_COLOR_SCHEME, smooth = 1, snow = 1 } = {}) {
