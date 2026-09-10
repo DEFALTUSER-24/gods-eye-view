@@ -36,10 +36,14 @@ const DEFAULT_OVERLAY_HOST = Object.freeze({
 export function parsePointRows(text, { nameOf } = {}) {
   const rows = [];
   let index = 0;
-  for (const line of String(text || '').split(/\r?\n/)) {
-    if (!line.trim()) continue;
-    let f = null;
-    try { f = JSON.parse(line); } catch { continue; }
+  const src = String(text || '');
+  // A whole FeatureCollection parses as one JSON value; GeoJSONL (one feature
+  // per line) does not, so fall back to line-by-line parsing.
+  let items = null;
+  try { const col = JSON.parse(src); if (Array.isArray(col?.features)) items = col.features; } catch { items = null; }
+  if (!items) items = src.split(/\r?\n/).filter((l) => l.trim()).map((line) => { try { return JSON.parse(line); } catch { return null; } });
+  for (const f of items) {
+    if (!f) continue;
     const g = f?.geometry;
     let lon; let lat;
     if (g?.type === 'Point') [lon, lat] = g.coordinates || [];
@@ -84,6 +88,7 @@ export function createProximityPointsLayer({
   icon = '•',
   source = 'Local',
   color = '#ffffff',
+  colorOf = null, // (props, tags) => css color, per row
   pixelSize = PROXIMITY_DEFAULTS.pixelSize,
   maxAltitudeM = PROXIMITY_DEFAULTS.maxAltitudeM,
   maxPoints = PROXIMITY_DEFAULTS.maxPoints,
@@ -99,6 +104,14 @@ export function createProximityPointsLayer({
   const overlaySourceId = id;
   const pointColor = Cesium.Color.fromCssColorString(color);
   const outline = Cesium.Color.fromCssColorString('#0b1116').withAlpha(0.9);
+  const _rowColors = new Map();
+  function rowColor(row) {
+    if (typeof colorOf !== 'function') return pointColor;
+    const css = colorOf(row.props, row.tags) || color;
+    let c = _rowColors.get(css);
+    if (!c) { c = Cesium.Color.fromCssColorString(css); _rowColors.set(css, c); }
+    return c;
+  }
   let _viewer = null;
   let _points = null;
   let _rows = null;
@@ -161,7 +174,7 @@ export function createProximityPointsLayer({
         variant: details.length ? 'card' : 'label',
         title: row.name.slice(0, 48),
         details,
-        accent: color,
+        accent: typeof colorOf === 'function' ? (colorOf(row.props, row.tags) || color) : color,
         priority: labelMax - entries.length,
         collisionGroup: 'ambient-label',
         paintLane: 'ambient-label',
@@ -203,7 +216,7 @@ export function createProximityPointsLayer({
       const point = _points.add({
         position: Cesium.Cartesian3.fromDegrees(row.lon, row.lat, 0),
         pixelSize,
-        color: pointColor,
+        color: rowColor(row),
         outlineColor: outline,
         outlineWidth: 1.2,
         scaleByDistance: new Cesium.NearFarScalar(2000, 1.4, 250000, 0.5),

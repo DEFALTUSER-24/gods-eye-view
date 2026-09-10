@@ -1,6 +1,6 @@
-# Estaciones ferroviarias con servicio (Argentina, 2022)
+# Estaciones ferroviarias — Argentina (con servicio 2022) + Provincia de Buenos Aires (08/2026)
 
-464 points from IDE Transporte (Ministerio de Transporte de la Nación) WFS layer
-`idera:Estacion_ffcc_serv_22.view` — https://ide.transporte.gob.ar/geoserver — CC-BY.
-Fields: nombre, línea (e.g. "FFCC Sarmiento"), operador (SOFSE, etc.). Snapshot 2026-09-09.
-Rebuild: `node scripts/build-ba-static-layers.mjs trenes`.
+1213 points: 464 stations with service (IDE Transporte WFS `idera:Estacion_ffcc_serv_22.view`, CC-BY) plus
+749 stations/halts from catalogo.datos.gba.gob.ar "Estaciones de ferrocarril 08/2026" (CC-BY 4.0) that were not within
+~300 m of an existing point. Snapshot 2026-09-10. Rebuild: `node scripts/build-ba-static-layers.mjs trenes` then
+`node scripts/build-caba-static-layers.mjs trenes`.

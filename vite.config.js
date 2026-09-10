@@ -106,6 +106,9 @@ import { normalizeOutages } from './src/data/edesurFeed.js';
 import { parseCsv as parseFuelCsv, reduceStations as reduceFuelStations } from './src/data/fuelFeed.js';
 import { SMN_CAP_INDEX_URL, capIndexLinks, parseCapAlert } from './src/data/smnCap.js';
 import { normalizeTramos } from './src/data/rutasFeed.js';
+import { normalizeSubte } from './src/data/subteFeed.js';
+import { callWindow, normalizeCalls } from './src/data/agpFeed.js';
+import { joinAirQuality, latestReadings as latestApraReadings, parseStations as parseApraStations } from './src/data/apraFeed.js';
 import {
   activeSeriesIds,
   chunkIds,
@@ -4154,6 +4157,69 @@ function inaRiversProxy() {
   });
 }
 
+// ── Buenos Aires Ciudad epok (Mapa Interactivo BA backend): subte status ────
+const EPOK_BASE = 'https://epok.buenosaires.gob.ar/getGeoLayer/';
+function epokUrl(categoria) {
+  return `${EPOK_BASE}?categoria=${categoria}&formato=geojson&srid=4326`;
+}
+async function epokJson(categoria) {
+  const response = await fetchWithTimeout(epokUrl(categoria), { timeoutMs: 40_000, headers: { Accept: 'application/json' } });
+  return readResponseJsonCapped(response, 8 * 1024 * 1024);
+}
+function subteProxy() {
+  return createSnapshotProxy({
+    name: 'subte-proxy',
+    route: '/api/epok/subte',
+    ttlMs: 5 * 60_000,
+    async load() {
+      const [stations, lines] = await Promise.all([epokJson('estaciones_de_subte'), epokJson('lineas_de_subte&geometria=lineas')]);
+      const data = normalizeSubte(stations, lines);
+      if (!data.stations.length) throw new Error('epok returned no subte stations');
+      return { generatedAt: Date.now(), count: data.stations.length, ...data };
+    },
+  });
+}
+
+// ── Puerto de Buenos Aires (AGP ePuertos) ───────────────────────────────────
+function agpProxy() {
+  return createSnapshotProxy({
+    name: 'agp-proxy',
+    route: '/api/agp/escalas',
+    ttlMs: 5 * 60_000,
+    async load() {
+      const { from, to } = callWindow();
+      const url = `https://api.agp-ports.gob.ar/api/giros/escalas?fechaIngresoDesde=${from}&fechaIngresoHasta=${to}&skip=0&take=200`;
+      const response = await fetchWithTimeout(url, { timeoutMs: 40_000, headers: { Accept: 'application/json' } });
+      const calls = normalizeCalls(await readResponseJsonCapped(response, 8 * 1024 * 1024));
+      return { generatedAt: Date.now(), count: calls.length, window: { from, to }, calls };
+    },
+  });
+}
+
+// ── APrA air quality (CABA) ─────────────────────────────────────────────────
+const APRA_CDN = 'https://cdn.buenosaires.gob.ar/datosabiertos/datasets/agencia-de-proteccion-ambiental/calidad-aire';
+function apraProxy() {
+  return createSnapshotProxy({
+    name: 'apra-proxy',
+    route: '/api/apra/aire',
+    ttlMs: 60 * 60_000,
+    diskCacheFile: 'apra-aire.json',
+    diskTtlMs: 6 * 60 * 60_000,
+    async load() {
+      const year = new Date().getFullYear();
+      const [stationsRes, dataRes] = await Promise.all([
+        fetchWithTimeout(`${APRA_CDN}/estaciones-ambientales.csv`, { timeoutMs: 40_000, headers: { 'User-Agent': SMN_BROWSER_UA } }),
+        fetchWithTimeout(`${APRA_CDN}/calidad_aire_${year}.csv`, { timeoutMs: 60_000, headers: { 'User-Agent': SMN_BROWSER_UA } }),
+      ]);
+      const stations = parseApraStations(await readResponseTextCapped(stationsRes, 512 * 1024));
+      const readings = latestApraReadings(await readResponseTextCapped(dataRes, 8 * 1024 * 1024));
+      const joined = joinAirQuality(stations, readings);
+      if (!joined.length) throw new Error('APrA returned no stations');
+      return { generatedAt: Date.now(), count: joined.length, stations: joined };
+    },
+  });
+}
+
 function gbfsProxy() {
   return {
     name: 'gbfs-proxy',
@@ -6726,6 +6792,17 @@ const GEV_REALTIME_TOOLS = [
             'smn-alerts',
             'rutas-estado',
             'ina-rivers',
+            'subte',
+            'puerto-ba',
+            'aire-caba',
+            'local-ba-salud',
+            'local-ba-bomberos',
+            'local-caba-servicios',
+            'local-renabap-amba',
+            'local-caba-ciclovias',
+            'local-laplata-inundacion',
+            'caba-ruido',
+            'caba-hidrica',
             'ais-live-vessels',
             'local-datacenters',
             'local-dams',
@@ -6770,6 +6847,17 @@ const GEV_REALTIME_TOOLS = [
             'smn-alerts',
             'rutas-estado',
             'ina-rivers',
+            'subte',
+            'puerto-ba',
+            'aire-caba',
+            'local-ba-salud',
+            'local-ba-bomberos',
+            'local-caba-servicios',
+            'local-renabap-amba',
+            'local-caba-ciclovias',
+            'local-laplata-inundacion',
+            'caba-ruido',
+            'caba-hidrica',
             'ais-live-vessels',
             'local-datacenters',
             'local-dams',
@@ -8721,6 +8809,9 @@ export default defineConfig(({ mode }) => {
       smnProxy(),
       cammesaProxy(),
       rainviewerProxy(),
+      subteProxy(),
+      agpProxy(),
+      apraProxy(),
       bahiaBusesProxy(),
       conaeProxy(),
       edesurProxy(),

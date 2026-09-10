@@ -193,6 +193,48 @@ export const DATA_CREDITS = [
       '<a href="https://ide.transporte.gob.ar" target="_blank" rel="noopener">IDE Transporte — Ministerio de Transporte de la Nación</a> (CC-BY)',
   },
   {
+    key: 'epok-caba',
+    html:
+      'Subte, salud, bomberos y servicios CABA: ' +
+      '<a href="https://mapa.buenosaires.gob.ar" target="_blank" rel="noopener">Mapa Interactivo BA — Buenos Aires Ciudad</a> (CC-BY)',
+  },
+  {
+    key: 'agp',
+    html:
+      'Puerto de Buenos Aires: ' +
+      '<a href="https://www.argentina.gob.ar/puerto-buenos-aires" target="_blank" rel="noopener">AGP ePuertos — escalas de buques</a>',
+  },
+  {
+    key: 'apra',
+    html:
+      'Calidad de aire CABA: ' +
+      '<a href="https://data.buenosaires.gob.ar/dataset/calidad-aire" target="_blank" rel="noopener">APrA — Buenos Aires Ciudad</a> (CC-BY-2.5-AR)',
+  },
+  {
+    key: 'renabap',
+    html:
+      'Barrios populares: ' +
+      '<a href="https://www.argentina.gob.ar/habitat/renabap" target="_blank" rel="noopener">RENABAP — Ministerio de Obras Públicas</a>',
+  },
+  {
+    key: 'usig',
+    html:
+      'Mapas de ruido e hidrología CABA: ' +
+      '<a href="https://usig.buenosaires.gob.ar" target="_blank" rel="noopener">USIG — Buenos Aires Ciudad</a>',
+  },
+  {
+    key: 'laplata',
+    html:
+      'Riesgo de inundación La Plata: ' +
+      '<a href="https://www.laplata.gob.ar" target="_blank" rel="noopener">Municipalidad de La Plata (IDEBA nodo La Plata)</a>',
+  },
+  {
+    key: 'pba-datos',
+    html:
+      'Salud, bomberos y estaciones PBA: ' +
+      '<a href="https://catalogo.datos.gba.gob.ar" target="_blank" rel="noopener">Datos Abiertos Provincia de Buenos Aires</a> (CC-BY 4.0)',
+  },
+  {
     key: 'ina',
     html:
       'Alturas de ríos: ' +

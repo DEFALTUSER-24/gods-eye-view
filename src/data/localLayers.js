@@ -1,5 +1,12 @@
 import { createLocalGeoJsonLayer } from './localGeojson.js';
 import { createProximityPointsLayer } from './proximityPoints.js';
+import { createGatedGeoJsonLayer } from './gatedGeoJson.js';
+import baSaludUrl from './local_data/ba_salud/ba_salud.geojsonl?url';
+import baBomberosUrl from './local_data/ba_bomberos/ba_bomberos.geojsonl?url';
+import cabaServiciosUrl from './local_data/caba_servicios/caba_servicios.geojsonl?url';
+import renabapUrl from './local_data/renabap_amba/renabap_amba.geojsonl?url';
+import cicloviasUrl from './local_data/caba_ciclovias/caba_ciclovias.geojsonl?url';
+import laplataUrl from './local_data/laplata_inundacion/laplata_inundacion.geojsonl?url';
 import { createFirmsHeatmapLayer } from './firmsHeatmap.js';
 import submarineCablesLayer from './telegeographySubmarineCables.js';
 
@@ -100,7 +107,100 @@ const fires = createFirmsHeatmapLayer({
   source: 'NASA FIRMS · LIVE',
 });
 
+const SERVICE_COLORS = {
+  Farmacia: '#7cffb2', 'Cajero Link': '#ffd166', 'Cajero Banelco': '#ffb347', 'Parada de taxi': '#f5f5f5',
+  Terminal: '#ff7f50', Antena: '#c58cff', Museo: '#ff8fd6', 'WiFi público': '#4fd8ff',
+};
+
+// ── CABA / GBA round 2: bundled open datasets (see scripts/build-caba-static-layers.mjs) ──
+const baSalud = createProximityPointsLayer({
+  id: 'local-ba-salud',
+  group: 'argentina',
+  url: baSaludUrl,
+  name: 'Salud pública BA',
+  color: '#ff5c8a',
+  icon: '🏥',
+  source: 'GCBA + Min. Salud PBA',
+  maxAltitudeM: 150_000,
+  maxPoints: 900,
+  labelMax: 80,
+  colorOf: (p, t) => (t.jurisdiction === 'CABA' ? '#ff5c8a' : '#ff9ab5'),
+  detailsOf: (p, t) => [t.healthcare || '', t.partido || t.barrio || ''].filter(Boolean).map((s) => String(s).toUpperCase()),
+  analystFields: ['healthcare', 'jurisdiction', 'partido', 'locality'],
+});
+
+const baBomberos = createProximityPointsLayer({
+  id: 'local-ba-bomberos',
+  group: 'argentina',
+  url: baBomberosUrl,
+  name: 'Bomberos BA',
+  color: '#ff4d4d',
+  icon: '🚒',
+  source: 'GCBA + Provincia',
+  maxAltitudeM: 300_000,
+  maxPoints: 600,
+  labelMax: 80,
+  detailsOf: (p, t) => [t.operator || ''].filter(Boolean).map((s) => String(s).toUpperCase()),
+  analystFields: ['operator', 'jurisdiction'],
+});
+
+const cabaServicios = createProximityPointsLayer({
+  id: 'local-caba-servicios',
+  group: 'argentina',
+  url: cabaServiciosUrl,
+  name: 'Servicios CABA',
+  color: '#cfd8dc',
+  icon: '📍',
+  source: 'Buenos Aires Ciudad',
+  maxAltitudeM: 25_000,
+  maxPoints: 900,
+  labelMax: 70,
+  colorOf: (p, t) => SERVICE_COLORS[t.service] || '#cfd8dc',
+  detailsOf: (p, t) => [t.service || '', t.kind || t.operator || ''].filter(Boolean).map((s) => String(s).toUpperCase()),
+  analystFields: ['service', 'kind', 'barrio'],
+});
+
+const renabap = createGatedGeoJsonLayer({
+  id: 'local-renabap-amba',
+  group: 'argentina',
+  url: renabapUrl,
+  name: 'Barrios populares (RENABAP)',
+  icon: '🏘️',
+  source: 'RENABAP 2020',
+  maxAltitudeM: 120_000,
+  defaultStyle: { stroke: '#ffb347', strokeWidth: 2, fill: '#ffb347', fillAlpha: 0.28 },
+});
+
+const ciclovias = createGatedGeoJsonLayer({
+  id: 'local-caba-ciclovias',
+  group: 'argentina',
+  url: cicloviasUrl,
+  name: 'Ciclovías CABA',
+  icon: '🚴',
+  source: 'Buenos Aires Ciudad',
+  maxAltitudeM: 60_000,
+  defaultStyle: { stroke: '#7cffb2', strokeWidth: 3, fill: '#7cffb2', fillAlpha: 0.2 },
+  styleOf: (p, t) => (/doble/i.test(t.kind || '') ? { stroke: '#4cd964', strokeWidth: 4 } : {}),
+});
+
+const laplataInundacion = createGatedGeoJsonLayer({
+  id: 'local-laplata-inundacion',
+  group: 'argentina',
+  url: laplataUrl,
+  name: 'Riesgo de inundación La Plata',
+  icon: '🌧️',
+  source: 'Municipalidad de La Plata',
+  maxAltitudeM: 40_000,
+  defaultStyle: { stroke: '#ff3b3b', strokeWidth: 3, fill: '#ff3b3b', fillAlpha: 0.2 },
+});
+
 export default [
+  baSalud,
+  baBomberos,
+  cabaServicios,
+  renabap,
+  ciclovias,
+  laplataInundacion,
   datacenters,
   dams,
   pbaComisarias,

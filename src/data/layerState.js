@@ -275,8 +275,11 @@ export const SHARE_TRACKING_RESTORE_POLICIES = Object.freeze({
  * owns stable URL ordering.
  */
 export const LAYER_STATE_REGISTRY = Object.freeze([
+  Object.freeze({ id: 'aire-caba', token: 'a3', disposition: 'enabled-only' }),
   Object.freeze({ id: 'ais-live-vessels', token: 'a', disposition: 'enabled-only' }),
   Object.freeze({ id: 'bikeshare', token: 'b', disposition: 'enabled-only' }),
+  Object.freeze({ id: 'caba-hidrica', token: 'b3', disposition: 'enabled-only' }),
+  Object.freeze({ id: 'caba-ruido', token: 'b2', disposition: 'enabled-only' }),
   Object.freeze({ id: 'cammesa-grid', token: 'k', disposition: 'enabled-only' }),
   Object.freeze({ id: 'cctv', token: 'c', disposition: 'enabled+options', optionOwner: 'cctv' }),
   Object.freeze({ id: 'colectivos', token: 'o', disposition: 'enabled-only' }),
@@ -286,15 +289,22 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
   Object.freeze({ id: 'flights', token: 'f', disposition: 'enabled+options', optionOwner: 'flights' }),
   Object.freeze({ id: 'fuel-prices', token: 'z', disposition: 'enabled-only' }),
   Object.freeze({ id: 'ina-rivers', token: '3', disposition: 'enabled-only' }),
+  Object.freeze({ id: 'local-ba-bomberos', token: 'a5', disposition: 'enabled-only' }),
+  Object.freeze({ id: 'local-ba-salud', token: 'a4', disposition: 'enabled-only' }),
+  Object.freeze({ id: 'local-caba-ciclovias', token: 'a8', disposition: 'enabled-only' }),
   Object.freeze({ id: 'local-caba-radares', token: 'p', disposition: 'enabled-only' }),
+  Object.freeze({ id: 'local-caba-servicios', token: 'a6', disposition: 'enabled-only' }),
   Object.freeze({ id: 'local-dams', token: 'q', disposition: 'enabled-only' }),
   Object.freeze({ id: 'local-datacenters', token: 'd', disposition: 'enabled-only' }),
   Object.freeze({ id: 'local-firms', token: 'w', disposition: 'enabled-only' }),
+  Object.freeze({ id: 'local-laplata-inundacion', token: 'b1', disposition: 'enabled-only' }),
   Object.freeze({ id: 'local-pba-comisarias', token: 'h', disposition: 'enabled-only' }),
+  Object.freeze({ id: 'local-renabap-amba', token: 'a7', disposition: 'enabled-only' }),
   Object.freeze({ id: 'local-tren-estaciones', token: 'j', disposition: 'enabled-only' }),
   Object.freeze({ id: 'military', token: 'm', disposition: 'enabled+mirrored-options', optionOwner: 'flights' }),
   Object.freeze({ id: 'military-awareness', token: 'g', disposition: 'enabled-only' }),
   Object.freeze({ id: 'military-installations', token: 'i', disposition: 'enabled-only' }),
+  Object.freeze({ id: 'puerto-ba', token: 'a2', disposition: 'enabled-only' }),
   Object.freeze({ id: 'radio', token: 'r', disposition: 'enabled+options', optionOwner: 'radio' }),
   Object.freeze({ id: 'rainviewer-radar', token: 'v', disposition: 'enabled-only' }),
   Object.freeze({ id: 'rocket-launches', token: 'x', disposition: 'enabled-only' }),
@@ -302,6 +312,7 @@ export const LAYER_STATE_REGISTRY = Object.freeze([
   Object.freeze({ id: 'satellites', token: 's', disposition: 'enabled+options', optionOwner: 'satellites' }),
   Object.freeze({ id: 'smn-alerts', token: '1', disposition: 'enabled-only' }),
   Object.freeze({ id: 'smn-weather', token: 'n', disposition: 'enabled-only' }),
+  Object.freeze({ id: 'subte', token: 'a1', disposition: 'enabled-only' }),
   Object.freeze({ id: 'telegeography-submarine-cables', token: 'u', disposition: 'enabled-only' }),
   Object.freeze({ id: 'traffic', token: 't', disposition: 'enabled-only' }),
 ]);
@@ -349,7 +360,9 @@ export function validateLayerStateRegistry(registry = LAYER_STATE_REGISTRY) {
     if (!/^[a-z0-9-]+$/.test(entry.id)) throw new Error(`Invalid layer-state id: ${entry.id}`);
     if (ids.has(entry.id)) throw new Error(`Duplicate layer-state id: ${entry.id}`);
     ids.add(entry.id);
-    if (!/^[a-z0-9]$/.test(entry.token || '')) throw new Error(`Invalid layer-state token: ${entry.id}`);
+    // One or two [a-z0-9] characters: the single-letter space ran out with the
+    // Argentina pack, and the codec splits on '.', so longer tokens are safe.
+    if (!/^[a-z0-9]{1,2}$/.test(entry.token || '')) throw new Error(`Invalid layer-state token: ${entry.id}`);
     if (tokens.has(entry.token)) throw new Error(`Duplicate layer-state token: ${entry.token}`);
     tokens.add(entry.token);
     if (!VALID_DISPOSITIONS.has(entry.disposition)) {
