@@ -3,7 +3,9 @@ import { governorRequestRender } from '../renderGovernor.js';
 
 /**
  * Radar de lluvia — RainViewer global precipitation radar composite, draped on
- * the globe as animated imagery (last ~2 h of 10-minute frames).
+ * the globe as one imagery layer (the latest 10-minute frame, refreshed every
+ * 5 min). Animation is off: frames switched before their tiles loaded, which
+ * looked like random colour flashes over the patchy Argentine coverage.
  *
  * Data: keyless RainViewer public API, brokered by /api/rainviewer/maps (frame
  * catalog); PNG tiles come straight from tilecache.rainviewer.com (CORS *).
@@ -14,10 +16,12 @@ import { governorRequestRender } from '../renderGovernor.js';
 
 export const RAINVIEWER_API_URL = '/api/rainviewer/maps';
 export const RAINVIEWER_POLL_MS = 5 * 60_000;
-export const RAINVIEWER_FRAME_COUNT = 8;
+export const RAINVIEWER_FRAME_COUNT = 1;
+/** Cycling frames before their tiles load reads as random flashes; keep it static. */
+export const RAINVIEWER_ANIMATE = false;
 export const RAINVIEWER_FRAME_MS = 650;
 export const RAINVIEWER_HOLD_LAST_MS = 1600;
-export const RAINVIEWER_ALPHA = 0.78;
+export const RAINVIEWER_ALPHA = 0.7;
 export const RAINVIEWER_COLOR_SCHEME = 2; // "Universal Blue"
 export const RAINVIEWER_MAX_LEVEL = 10;
 
@@ -84,7 +88,7 @@ export function createRainviewerLayer({
 
   function scheduleNext() {
     stopAnimation();
-    if (!_enabled || _frames.length < 2) return;
+    if (!RAINVIEWER_ANIMATE || !_enabled || _frames.length < 2) return;
     const atLast = _frameIndex === _frames.length - 1;
     _timer = setTimeout(() => {
       showFrame(_frameIndex + 1);

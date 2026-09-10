@@ -1,9 +1,8 @@
 import * as Cesium from 'cesium';
 
 /**
- * "Street View" button in the LOCATION toolbar: opens Google Maps Street
- * View (new tab, no API key) at the point under the centre of the view,
- * facing the camera's heading.
+ * Google Street View URL helpers (used by the right-click context menu):
+ * new tab, no API key, facing the camera's heading.
  */
 
 export function streetViewUrl(lat, lon, headingDeg = 0) {
@@ -34,28 +33,4 @@ export function cameraTargetLatLon(viewer) {
     lon: Cesium.Math.toDegrees(carto.longitude),
     headingDeg: Cesium.Math.toDegrees(viewer.camera.heading),
   };
-}
-
-export function initStreetViewButton(viewer, { doc = globalThis.document, open = (url) => globalThis.open(url, '_blank', 'noopener') } = {}) {
-  const toolbar = doc?.querySelector?.('#location-bar .location-toolbar');
-  if (!toolbar || doc.getElementById('street-view-btn')) return null;
-  const button = doc.createElement('button');
-  button.id = 'street-view-btn';
-  button.type = 'button';
-  button.className = 'location-toolbar-btn';
-  button.title = 'Abrir Google Street View en el centro de la vista (nueva pestaña)';
-  button.innerHTML = '<span aria-hidden="true">👁</span><span>STREET VIEW</span>';
-  button.addEventListener('click', (event) => {
-    event.stopPropagation();
-    const target = cameraTargetLatLon(viewer);
-    if (!target) {
-      button.classList.add('shake');
-      setTimeout(() => button.classList.remove('shake'), 400);
-      return;
-    }
-    open(streetViewUrl(target.lat, target.lon, target.headingDeg));
-  });
-  const collapse = toolbar.querySelector('.panel-collapse-btn');
-  if (collapse) toolbar.insertBefore(button, collapse); else toolbar.appendChild(button);
-  return button;
 }
