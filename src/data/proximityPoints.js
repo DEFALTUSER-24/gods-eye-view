@@ -125,6 +125,8 @@ export function createProximityPointsLayer({
   let _lastError = null;
   let _lastUpdate = null;
   let _loading = false;
+  /** Optional row predicate (e.g. category chips); null = show everything. */
+  let _filter = null;
 
   async function ensureRows() {
     if (_rows) return _rows;
@@ -207,7 +209,8 @@ export function createProximityPointsLayer({
     }
     _gated = false;
     const rect = viewRectangleDeg();
-    const rowsInView = selectInRectangle(_rows, rect, { marginRatio, maxPoints });
+    const pool = typeof _filter === 'function' ? _rows.filter(_filter) : _rows;
+    const rowsInView = selectInRectangle(pool, rect, { marginRatio, maxPoints });
     // Rows nearest the center first, so the label cohort favors the middle.
     const seen = new Set();
     for (const row of rowsInView) {
@@ -315,6 +318,19 @@ export function createProximityPointsLayer({
       }
       _visible = new Map();
       _viewer = null;
+    },
+
+    /** Set (or clear with null) a row predicate; redraws immediately when enabled. */
+    setFilter(predicate) {
+      _filter = typeof predicate === 'function' ? predicate : null;
+      if (_enabled) { clearVisible(); _gated = true; refresh(); }
+    },
+
+    /** Row counts per `tags[field]` over the whole dataset (for chip badges). */
+    countBy(field) {
+      const out = {};
+      for (const row of _rows || []) { const k = row.tags?.[field] || ''; if (k) out[k] = (out[k] || 0) + 1; }
+      return out;
     },
 
     getRow(pickedId) {

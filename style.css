@@ -9536,3 +9536,20 @@ body.scene-playback-mode #key-setup {
   opacity: 0.9;
 }
 .data-toggle-group .data-toggle-group-flag { font-size: 12px; }
+
+/* DISPLAY · Puntos de interés CABA category chips */
+.caba-poi-group .caba-poi-row.visible { flex-wrap: wrap; }
+.pp-chip-wrap { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 4px 6px; }
+.pp-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 9px; border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary, #9fb3c4);
+  font: inherit; font-size: 11px; letter-spacing: 0.04em;
+  cursor: pointer; opacity: 0.55; transition: opacity 120ms ease, background 120ms ease;
+}
+.pp-chip:hover { background: rgba(255, 255, 255, 0.08); opacity: 0.85; }
+.pp-chip.active { opacity: 1; color: var(--text-primary, #eef4f8); border-color: var(--chip-color); background: color-mix(in srgb, var(--chip-color) 16%, transparent); }
+.pp-chip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--chip-color); box-shadow: 0 0 6px var(--chip-color); }
+.pp-chip-count { font-size: 10px; opacity: 0.7; }

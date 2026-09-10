@@ -28,7 +28,8 @@ import rainviewerLayer from './data/rainviewer.js';
 import aisLiveVesselsLayer from './data/aisLiveVessels.js';
 import militaryInstallationsLayer from './data/militaryInstallations.js';
 import militaryAwarenessLayer from './data/militaryAwareness.js';
-import localDataLayers from './data/localLayers.js';
+import localDataLayers, { cabaPoiLayer } from './data/localLayers.js';
+import { initCabaPoiFilter } from './cabaPoiFilter.js';
 import { LAYER_STATE_REGISTRY } from './data/layerState.js';
 import { registerDataCredits } from './data/dataCredits.js';
 import { SceneDirector } from './scenes/director.js';
@@ -266,6 +267,8 @@ async function init() {
       };
     }
     dataManager.buildTogglePanel(document.getElementById('data-toggles'));
+    // DISPLAY-panel category chips for the CABA points-of-interest layer.
+    initCabaPoiFilter(cabaPoiLayer, { dataManager });
     styleManager.attachDataManager(dataManager);
 
     // Initialize deterministic scene playback for social clip capture

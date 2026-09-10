@@ -293,7 +293,7 @@ Thirteen layers and map sources. **Eleven have a keyless path.** Some offer addi
 | 🚇 **Subte (estado del servicio)** | The six lines and 90 stations; closed stations / disrupted lines turn red with the live notice | Buenos Aires Ciudad (epok) | 🟢 |
 | 🚢 **Puerto de Buenos Aires** | Ship calls at berth: operating / delayed / expected, with ship, flag, size, ETA/ETD | AGP ePuertos | 🟢 |
 | 🌫️ **Calidad de aire CABA** | APrA stations with latest CO / NO2 / PM10 | APrA | 🟢 |
-| 🏥 🚒 📍 **Salud · Bomberos · Servicios** | 3 139 health sites, 454 fire stations, 5 236 pharmacies/ATMs/taxi stands/terminals/antennas/museums/wifi (proximity-gated) | GCBA + Provincia | 🟢 |
+| 🏥 🚒 📍 **Salud · Bomberos · Servicios** | 3 139 health sites, 454 fire stations, 17 317 points of interest from ~75 city layers, filtered by category chips in DISPLAY (proximity-gated) | GCBA + Provincia | 🟢 |
 | 🏘️ 🚴 🌧️ **RENABAP · Ciclovías · Inundación La Plata** | 1 200 barrio polygons, 2 764 bike-lane segments, 6 047 high-flood-risk streets (altitude-gated) | RENABAP, GCBA, La Plata | 🟢 |
 | 🔊 💧 **Ruido · Arroyos CABA** | USIG raster overlays: daytime noise map, piped streams and basins | USIG | 🟢 |
 | 🌧️ **Radar de lluvia** | Animated global precipitation radar (last ~80 min, 10-minute frames) draped on the globe | RainViewer | 🟢 |

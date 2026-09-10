@@ -3,7 +3,8 @@ import { createProximityPointsLayer } from './proximityPoints.js';
 import { createGatedGeoJsonLayer } from './gatedGeoJson.js';
 import baSaludUrl from './local_data/ba_salud/ba_salud.geojsonl?url';
 import baBomberosUrl from './local_data/ba_bomberos/ba_bomberos.geojsonl?url';
-import cabaServiciosUrl from './local_data/caba_servicios/caba_servicios.geojsonl?url';
+import cabaPoiUrl from './local_data/caba_poi/caba_poi.geojsonl?url';
+import { categoryColor } from '../cabaPoiFilter.js';
 import renabapUrl from './local_data/renabap_amba/renabap_amba.geojsonl?url';
 import cicloviasUrl from './local_data/caba_ciclovias/caba_ciclovias.geojsonl?url';
 import laplataUrl from './local_data/laplata_inundacion/laplata_inundacion.geojsonl?url';
@@ -107,10 +108,6 @@ const fires = createFirmsHeatmapLayer({
   source: 'NASA FIRMS · LIVE',
 });
 
-const SERVICE_COLORS = {
-  Farmacia: '#7cffb2', 'Cajero Link': '#ffd166', 'Cajero Banelco': '#ffb347', 'Parada de taxi': '#f5f5f5',
-  Terminal: '#ff7f50', Antena: '#c58cff', Museo: '#ff8fd6', 'WiFi público': '#4fd8ff',
-};
 
 // ── CABA / GBA round 2: bundled open datasets (see scripts/build-caba-static-layers.mjs) ──
 const baSalud = createProximityPointsLayer({
@@ -144,21 +141,24 @@ const baBomberos = createProximityPointsLayer({
   analystFields: ['operator', 'jurisdiction'],
 });
 
-const cabaServicios = createProximityPointsLayer({
+// 17k points from ~75 city layers; the DISPLAY panel chips (cabaPoiFilter.js)
+// filter by `tags.category`, and only the view's neighbourhood is drawn.
+export const cabaPoiLayer = createProximityPointsLayer({
   id: 'local-caba-servicios',
   group: 'argentina',
-  url: cabaServiciosUrl,
-  name: 'Servicios CABA',
+  url: cabaPoiUrl,
+  name: 'Puntos de interés CABA',
   color: '#cfd8dc',
   icon: '📍',
-  source: 'Buenos Aires Ciudad',
+  source: 'Mapa Interactivo BA',
   maxAltitudeM: 25_000,
   maxPoints: 900,
   labelMax: 70,
-  colorOf: (p, t) => SERVICE_COLORS[t.service] || '#cfd8dc',
-  detailsOf: (p, t) => [t.service || '', t.kind || t.operator || ''].filter(Boolean).map((s) => String(s).toUpperCase()),
-  analystFields: ['service', 'kind', 'barrio'],
+  colorOf: (p, t) => categoryColor(t.category),
+  detailsOf: (p, t) => [t.service || '', t.extra || t.barrio || ''].filter(Boolean).map((s) => String(s).toUpperCase()),
+  analystFields: ['category', 'service', 'extra', 'barrio'],
 });
+const cabaServicios = cabaPoiLayer;
 
 const renabap = createGatedGeoJsonLayer({
   id: 'local-renabap-amba',
