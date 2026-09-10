@@ -133,7 +133,7 @@ export function createProximityPointsLayer({
     if (_rows) return _rows;
     if (!_loadPromise) {
       _loading = true;
-      _loadPromise = fetchImpl(url, { cache: 'force-cache' })
+      _loadPromise = fetchImpl(url, { cache: 'no-cache' })
         .then(async (response) => {
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           _rows = parsePointRows(await response.text(), { nameOf });

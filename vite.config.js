@@ -42,6 +42,7 @@ import {
   isOverBudget as isTomTomOverBudget,
 } from './src/data/tomtomTiles.js';
 import { filterTrailing24h, parseFirmsCsv } from './src/data/firmsCsv.js';
+import { USIG_TILE_ROUTE, parseUsigTilePath, usigUpstreamTileUrl, usigRetryDelayMs } from './src/data/usigTiles.js';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 import { defineConfig, loadEnv } from 'vite';
@@ -3827,6 +3828,106 @@ function rainviewerProxy() {
   };
 }
 
+// ── USIG mapcache tiles (Buenos Aires Ciudad) ───────────────────────────────
+// The city's mapcache renders tiles on demand and answers a share of parallel
+// requests with HTTP 500 ("another thread failed to create the tile"); the
+// same tile is fine a moment later. Route /api/usig/tiles/<layer>/<z>/<x>/<y>.png
+// (TMS y) → upstream with bounded concurrency, retries with backoff and a
+// small in-memory cache, so the aerial photos / thematic maps fill in fully.
+const USIG_TILE_TIMEOUT_MS = 25_000;
+const USIG_TILE_MAX_ATTEMPTS = 4;
+const USIG_TILE_CONCURRENCY = 4;
+const USIG_TILE_CACHE_MAX = 3000;
+const USIG_TILE_MAX_BYTES = 2 * 1024 * 1024;
+function usigTilesProxy() {
+  const cache = new Map(); // key → Buffer (insertion order = LRU-ish)
+  let active = 0;
+  const queue = [];
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+  function acquire() {
+    if (active < USIG_TILE_CONCURRENCY) { active += 1; return Promise.resolve(); }
+    return new Promise((resolve) => queue.push(resolve)).then(() => { active += 1; });
+  }
+  function release() {
+    active -= 1;
+    const next = queue.shift();
+    if (next) next();
+  }
+
+  async function fetchTileOnce(url) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), USIG_TILE_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'gods-eye-view-usig-proxy/1.0', Accept: 'image/png,image/*;q=0.8' },
+        signal: controller.signal,
+      });
+      if (response.status === 404) return { status: 404 };
+      if (!response.ok) return { status: response.status, transient: response.status >= 500 };
+      const contentType = String(response.headers.get('content-type') || '');
+      if (!contentType.startsWith('image/')) return { status: 502, transient: true };
+      const length = Number(response.headers.get('content-length') || 0);
+      if (length > USIG_TILE_MAX_BYTES) return { status: 502 };
+      const buffer = Buffer.from(await response.arrayBuffer());
+      if (buffer.length > USIG_TILE_MAX_BYTES) return { status: 502 };
+      return { status: 200, buffer, contentType };
+    } catch (error) {
+      return { status: 504, transient: true, error };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function fetchTile(url) {
+    let last = null;
+    for (let attempt = 0; attempt < USIG_TILE_MAX_ATTEMPTS; attempt += 1) {
+      await acquire();
+      try { last = await fetchTileOnce(url); } finally { release(); }
+      if (!last.transient) return last;
+      await sleep(usigRetryDelayMs(attempt));
+    }
+    return last;
+  }
+
+  return {
+    name: 'usig-tiles-proxy',
+    configureServer(server) {
+      server.middlewares.use(USIG_TILE_ROUTE, async (req, res) => {
+        const fail = (status, message) => {
+          res.writeHead(status, { 'Content-Type': 'text/plain', 'Cache-Control': 'no-store' });
+          res.end(message);
+        };
+        try {
+          if (req.method !== 'GET') return fail(405, 'Method Not Allowed');
+          const url = new URL(req.url || '/', 'http://localhost');
+          const tile = parseUsigTilePath(url.pathname);
+          if (!tile) return fail(404, 'not found');
+          const key = `${tile.layer}/${tile.z}/${tile.x}/${tile.y}`;
+          const cached = cache.get(key);
+          if (cached) {
+            cache.delete(key); cache.set(key, cached); // refresh LRU position
+            res.writeHead(200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400', 'X-USIG-Cache': 'HIT' });
+            return res.end(cached);
+          }
+          const result = await fetchTile(usigUpstreamTileUrl(tile));
+          if (result.status !== 200) {
+            if (result.status !== 404) console.warn(`[USIG Proxy] ${key} → ${result.status}${result.error ? ` (${result.error.message || result.error})` : ''}`);
+            return fail(result.status === 404 ? 404 : 502, result.status === 404 ? 'no tile' : 'usig upstream');
+          }
+          cache.set(key, result.buffer);
+          if (cache.size > USIG_TILE_CACHE_MAX) cache.delete(cache.keys().next().value);
+          res.writeHead(200, { 'Content-Type': result.contentType || 'image/png', 'Cache-Control': 'public, max-age=86400', 'X-USIG-Cache': 'MISS' });
+          return res.end(result.buffer);
+        } catch (error) {
+          console.error('[USIG Proxy]', error?.message || String(error));
+          return fail(502, 'usig proxy error');
+        }
+      });
+    },
+  };
+}
+
 // ── Generic keyless JSON snapshot proxy ─────────────────────────────────────
 // Shared shape for the small Argentina feeds below: one upstream fetch,
 // normalized server-side, cached with a TTL, single-flight, stale-on-error,
@@ -6803,6 +6904,12 @@ const GEV_REALTIME_TOOLS = [
             'local-laplata-inundacion',
             'caba-ruido',
             'caba-hidrica',
+            'caba-fotos-aereas',
+            'caba-tematico',
+            'local-pba-escuelas',
+            'local-pba-terminales',
+            'local-mdp-paradas',
+            'local-mdp-recorridos',
             'ais-live-vessels',
             'local-datacenters',
             'local-dams',
@@ -6858,6 +6965,12 @@ const GEV_REALTIME_TOOLS = [
             'local-laplata-inundacion',
             'caba-ruido',
             'caba-hidrica',
+            'caba-fotos-aereas',
+            'caba-tematico',
+            'local-pba-escuelas',
+            'local-pba-terminales',
+            'local-mdp-paradas',
+            'local-mdp-recorridos',
             'ais-live-vessels',
             'local-datacenters',
             'local-dams',
@@ -8809,6 +8922,7 @@ export default defineConfig(({ mode }) => {
       smnProxy(),
       cammesaProxy(),
       rainviewerProxy(),
+      usigTilesProxy(),
       subteProxy(),
       agpProxy(),
       apraProxy(),

@@ -214,12 +214,12 @@ export const DATA_CREDITS = [
     key: 'renabap',
     html:
       'Barrios populares: ' +
-      '<a href="https://www.argentina.gob.ar/habitat/renabap" target="_blank" rel="noopener">RENABAP — Ministerio de Obras Públicas</a>',
+      '<a href="https://datos.gob.ar/dataset/habitat-registro-nacional-de-barrios-populares" target="_blank" rel="noopener">RENABAP 2023 — Secretaría de Integración Socio Urbana (datos.gob.ar)</a>',
   },
   {
     key: 'usig',
     html:
-      'Mapas de ruido e hidrología CABA: ' +
+      'Mapas de ruido, hidrología, fotos aéreas históricas y mapas temáticos CABA: ' +
       '<a href="https://usig.buenosaires.gob.ar" target="_blank" rel="noopener">USIG — Buenos Aires Ciudad</a>',
   },
   {
@@ -231,8 +231,20 @@ export const DATA_CREDITS = [
   {
     key: 'pba-datos',
     html:
-      'Salud, bomberos y estaciones PBA: ' +
+      'Salud, bomberos, escuelas y estaciones PBA: ' +
       '<a href="https://catalogo.datos.gba.gob.ar" target="_blank" rel="noopener">Datos Abiertos Provincia de Buenos Aires</a> (CC-BY 4.0)',
+  },
+  {
+    key: 'ideba',
+    html:
+      'Terminales de ómnibus y peajes PBA: ' +
+      '<a href="https://www.gba.gob.ar/ideba" target="_blank" rel="noopener">IDEBA — Infraestructura de Datos Espaciales de la Provincia de Buenos Aires</a>',
+  },
+  {
+    key: 'mardelplata',
+    html:
+      'Colectivos de Mar del Plata: ' +
+      '<a href="https://datos.mardelplata.gob.ar" target="_blank" rel="noopener">Datos Abiertos — Municipalidad de General Pueyrredón</a>',
   },
   {
     key: 'ina',

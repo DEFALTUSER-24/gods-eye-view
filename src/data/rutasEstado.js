@@ -75,7 +75,7 @@ export function createRutasEstadoLayer({
 
   async function ensureGeometry() {
     if (_geometryLoaded || !_dataSource) return;
-    const response = await fetchImpl(geometryUrl, { cache: 'force-cache' });
+    const response = await fetchImpl(geometryUrl, { cache: 'no-cache' });
     if (!response.ok) throw new Error(`routes geometry HTTP ${response.status}`);
     const features = parseGeoJsonl(await response.text());
     for (const f of features) {

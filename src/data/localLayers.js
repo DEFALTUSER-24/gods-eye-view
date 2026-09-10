@@ -17,6 +17,10 @@ import damsUrl from './local_data/dams/dams.geojsonl?url';
 import cabaRadaresUrl from './local_data/caba_radares/radares.geojsonl?url';
 import pbaComisariasUrl from './local_data/pba_comisarias/pba_comisarias.geojsonl?url';
 import trenEstacionesUrl from './local_data/tren_estaciones/tren_estaciones.geojsonl?url';
+import pbaEscuelasUrl from './local_data/pba_escuelas/pba_escuelas.geojsonl?url';
+import pbaTerminalesUrl from './local_data/pba_terminales/pba_terminales.geojsonl?url';
+import mdpParadasUrl from './local_data/mdp_paradas/mdp_paradas.geojsonl?url';
+import mdpRecorridosUrl from './local_data/mdp_recorridos/mdp_recorridos.geojsonl?url';
 
 /**
  * Registry of local GeoJSON datasets.
@@ -168,14 +172,26 @@ const cabaServicios = cabaPoiLayer;
 
 const renabap = createGatedGeoJsonLayer({
   id: 'local-renabap-amba',
-  sourceUrl: 'https://www.argentina.gob.ar/habitat/renabap',
+  sourceUrl: 'https://datos.gob.ar/dataset/habitat-registro-nacional-de-barrios-populares',
   group: 'argentina',
   url: renabapUrl,
   name: 'Barrios populares (RENABAP)',
   icon: '🏘️',
-  source: 'RENABAP 2020',
+  source: 'RENABAP 2023',
   maxAltitudeM: 120_000,
   defaultStyle: { stroke: '#ffb347', strokeWidth: 2, fill: '#ffb347', fillAlpha: 0.28 },
+  hoverOf: (p, t) => ({
+    title: t.name || p.name || 'Barrio popular',
+    details: [
+      [t.localidad, t.partido].filter(Boolean).join(' · '),
+      [t.families ? `${t.families} familias` : '', t.dwellings ? `${t.dwellings} viviendas` : '', t.areaM2 ? `${(t.areaM2 / 10000).toFixed(t.areaM2 < 100000 ? 1 : 0)} ha` : ''].filter(Boolean).join(' · '),
+      [t.kind ? `Tipo: ${t.kind}` : '', t.year ? `desde ${t.year}` : (t.decade || '')].filter(Boolean).join(' · '),
+      t.tenure || '',
+      t.electricity ? `Luz: ${t.electricity}` : '',
+      t.water ? `Agua: ${t.water}` : '',
+      t.sewage ? `Cloaca: ${t.sewage}` : '',
+    ],
+  }),
 });
 
 const ciclovias = createGatedGeoJsonLayer({
@@ -189,6 +205,7 @@ const ciclovias = createGatedGeoJsonLayer({
   maxAltitudeM: 60_000,
   defaultStyle: { stroke: '#7cffb2', strokeWidth: 3, fill: '#7cffb2', fillAlpha: 0.2 },
   styleOf: (p, t) => (/doble/i.test(t.kind || '') ? { stroke: '#4cd964', strokeWidth: 4 } : {}),
+  hoverOf: (p, t) => ({ title: t.name || p.name || 'Ciclovía', details: [t.kind || '', [t.barrio, t.comuna ? `Comuna ${t.comuna}` : ''].filter(Boolean).join(' · '), t.lengthM ? `${Math.round(t.lengthM)} m` : ''] }),
 });
 
 const laplataInundacion = createGatedGeoJsonLayer({
@@ -201,6 +218,75 @@ const laplataInundacion = createGatedGeoJsonLayer({
   source: 'Municipalidad de La Plata',
   maxAltitudeM: 40_000,
   defaultStyle: { stroke: '#ff3b3b', strokeWidth: 3, fill: '#ff3b3b', fillAlpha: 0.2 },
+  hoverOf: (p, t) => ({ title: /^d/.test(t.name || '') ? `Calle ${t.name}` : (t.name || p.name || 'Calle'), details: [`Riesgo de inundación: ${t.risk || 'alto'}`, 'Plan de reducción de riesgo hídrico · La Plata'] }),
+});
+
+// ── PBA round 3 (see scripts/build-pba-static-layers.mjs) ──────────────────
+const pbaEscuelas = createProximityPointsLayer({
+  id: 'local-pba-escuelas',
+  sourceUrl: 'https://catalogo.datos.gba.gob.ar/dataset/establecimientos-educativos',
+  group: 'argentina',
+  url: pbaEscuelasUrl,
+  name: 'Escuelas PBA',
+  color: '#ffd166',
+  icon: '🏫',
+  source: 'DGCyE · Datos Abiertos PBA',
+  maxAltitudeM: 40_000,
+  maxPoints: 900,
+  labelMax: 70,
+  colorOf: (p, t) => (t.sector === 'Privado' ? '#ffb347' : '#ffd166'),
+  detailsOf: (p, t) => [t.nivel || '', t.sector || '', t.matricula ? `${t.matricula} alumnos` : ''].filter(Boolean).map((s) => String(s).toUpperCase()),
+  analystFields: ['nivel', 'modalidad', 'sector', 'municipio', 'matricula'],
+});
+
+const pbaTerminales = createProximityPointsLayer({
+  id: 'local-pba-terminales',
+  sourceUrl: 'https://geoserver.ideba.gba.gob.ar/geoserver/web/',
+  group: 'argentina',
+  url: pbaTerminalesUrl,
+  name: 'Terminales y peajes PBA',
+  color: '#4fd8ff',
+  icon: '🚌',
+  source: 'IDEBA',
+  maxAltitudeM: 900_000,
+  maxPoints: 400,
+  labelMax: 90,
+  pixelSize: 9,
+  colorOf: (p, t) => (t.kind === 'peaje' ? '#ff9f43' : '#4fd8ff'),
+  detailsOf: (p, t) => [t.kind === 'peaje' ? 'Peaje' : 'Terminal de ómnibus', t.localidad || ''].filter(Boolean).map((s) => String(s).toUpperCase()),
+  analystFields: ['kind', 'localidad', 'fuente'],
+});
+
+const mdpParadas = createProximityPointsLayer({
+  id: 'local-mdp-paradas',
+  sourceUrl: 'https://datos.mardelplata.gob.ar/',
+  group: 'argentina',
+  url: mdpParadasUrl,
+  name: 'Paradas colectivo Mar del Plata',
+  color: '#7cffb2',
+  icon: '🚏',
+  source: 'Municipalidad Gral. Pueyrredón',
+  maxAltitudeM: 20_000,
+  maxPoints: 900,
+  labelMax: 60,
+  pixelSize: 5,
+  detailsOf: (p, t) => [t.linea ? `Línea ${t.linea}` : ''].filter(Boolean).map((s) => String(s).toUpperCase()),
+  analystFields: ['linea'],
+});
+
+const MDP_LINE_COLORS = ['#ff6b6b', '#4fd8ff', '#ffd166', '#c58cff', '#7cffb2', '#ff8fd6', '#ffb347', '#4cd964'];
+const mdpRecorridos = createGatedGeoJsonLayer({
+  id: 'local-mdp-recorridos',
+  sourceUrl: 'https://datos.mardelplata.gob.ar/',
+  group: 'argentina',
+  url: mdpRecorridosUrl,
+  name: 'Recorridos colectivo Mar del Plata',
+  icon: '🚍',
+  source: 'Municipalidad Gral. Pueyrredón',
+  maxAltitudeM: 80_000,
+  defaultStyle: { stroke: '#4fd8ff', strokeWidth: 2.5, fill: '#4fd8ff', fillAlpha: 0.2 },
+  styleOf: (p, t) => ({ stroke: MDP_LINE_COLORS[(parseInt(t.linea, 10) || 0) % MDP_LINE_COLORS.length] }),
+  hoverOf: (p, t) => ({ title: t.linea ? `Línea ${t.linea}` : (p.name || 'Recorrido'), details: [t.ramal || ''] }),
 });
 
 export default [
@@ -215,6 +301,10 @@ export default [
   pbaComisarias,
   trenEstaciones,
   cabaRadares,
+  pbaEscuelas,
+  pbaTerminales,
+  mdpParadas,
+  mdpRecorridos,
   submarineCablesLayer,
   fires,
 ];

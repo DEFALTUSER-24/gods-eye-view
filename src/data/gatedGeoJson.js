@@ -1,6 +1,7 @@
 import * as Cesium from 'cesium';
 import { governorRequestRender } from '../renderGovernor.js';
 import { cameraAltitude, onCameraSettled } from './viewportGate.js';
+import { showHoverCard, hideHoverCard } from '../hoverCard.js';
 
 /**
  * Altitude-gated bundled GeoJSON layer for polygons and lines (RENABAP
@@ -20,6 +21,8 @@ export function createGatedGeoJsonLayer({
   source = 'Local',
   maxAltitudeM = 120_000,
   styleOf = null, // (properties, tags) => { stroke, strokeWidth, fill, fillAlpha }
+  hoverOf = null, // (properties, tags) => { title, details[] } shown in a card under the pointer
+  hoverThrottleMs = 60,
   defaultStyle = { stroke: '#ffffff', strokeWidth: 2, fill: '#ffffff', fillAlpha: 0.25 },
   fetchImpl = (...args) => globalThis.fetch(...args),
 }) {
@@ -34,7 +37,12 @@ export function createGatedGeoJsonLayer({
   let _lastError = null;
   let _lastUpdate = null;
   let _loading = false;
+  let _hoverHandler = null;
+  let _hoverAt = 0;
+  let _hoverId = null;
   const _colorCache = new Map();
+  /** line-primitive instance id → { props, tags } (for hover) */
+  const _lineFeatures = new Map();
 
   function color(css, alpha = 1) {
     const key = `${css}|${alpha}`;
@@ -86,10 +94,12 @@ export function createGatedGeoJsonLayer({
           last = c;
         }
         if (flat.length < 4) continue;
+        const instanceId = `${id}:${f.id ?? count}`;
+        _lineFeatures.set(instanceId, { props, tags });
         instances.push(new Cesium.GeometryInstance({
           geometry: new Cesium.GroundPolylineGeometry({ positions: Cesium.Cartesian3.fromDegreesArray(flat), width: style.strokeWidth }),
           attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(color(style.stroke, 0.95)) },
-          id: `${id}:${f.id ?? count}`,
+          id: instanceId,
         }));
         count += 1;
         if (instances.length >= BATCH) flush();
@@ -113,7 +123,7 @@ export function createGatedGeoJsonLayer({
     if (!_loadPromise) {
       _loading = true;
       _loadPromise = (async () => {
-        const response = await fetchImpl(url, { cache: 'force-cache' });
+        const response = await fetchImpl(url, { cache: 'no-cache' });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const text = await response.text();
         // A whole FeatureCollection parses as one value; GeoJSONL does not.
@@ -173,6 +183,62 @@ export function createGatedGeoJsonLayer({
     return _loadPromise;
   }
 
+  /** Resolve what of this layer sits under a pick result (pure given picked). */
+  function describeHover(picked) {
+    if (!picked || typeof hoverOf !== 'function') return null;
+    const entity = picked.id instanceof Cesium.Entity ? picked.id : null;
+    if (entity && _dataSource && _dataSource.entities.contains(entity)) {
+      const props = entity.properties;
+      const plain = {};
+      if (props) for (const key of props.propertyNames) plain[key] = props[key]?.getValue?.();
+      const described = hoverOf(plain, plain.tags || {});
+      return described ? { key: entity.id, ...described } : null;
+    }
+    const instanceId = typeof picked.id === 'string' ? picked.id : null;
+    const line = instanceId ? _lineFeatures.get(instanceId) : null;
+    if (line) {
+      const described = hoverOf(line.props, line.tags);
+      return described ? { key: instanceId, ...described } : null;
+    }
+    return null;
+  }
+
+  function onHover(movement) {
+    if (!_enabled || _gated || !_loaded) return;
+    const now = Date.now();
+    if (now - _hoverAt < hoverThrottleMs) return;
+    _hoverAt = now;
+    let picked = null;
+    try { picked = _viewer.scene.pick(movement.endPosition); } catch { picked = null; }
+    const described = describeHover(picked);
+    if (!described) {
+      if (_hoverId) { hideHoverCard(id); _hoverId = null; _viewer.scene.canvas.style.cursor = ''; }
+      return;
+    }
+    _hoverId = described.key;
+    _viewer.scene.canvas.style.cursor = 'help';
+    const rect = _viewer.scene.canvas.getBoundingClientRect();
+    showHoverCard({
+      x: rect.left + movement.endPosition.x,
+      y: rect.top + movement.endPosition.y,
+      title: described.title,
+      details: described.details || [],
+      accent: defaultStyle.stroke,
+      owner: id,
+    });
+  }
+
+  function attachHover() {
+    if (_hoverHandler || typeof hoverOf !== 'function' || !_viewer?.scene?.canvas) return;
+    _hoverHandler = new Cesium.ScreenSpaceEventHandler(_viewer.scene.canvas);
+    _hoverHandler.setInputAction(onHover, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+  }
+
+  function detachHover() {
+    if (_hoverHandler) { _hoverHandler.destroy(); _hoverHandler = null; }
+    if (_hoverId) { hideHoverCard(id); _hoverId = null; if (_viewer?.scene?.canvas) _viewer.scene.canvas.style.cursor = ''; }
+  }
+
   function refresh() {
     if (!_enabled || !_viewer) return;
     const gated = cameraAltitude(_viewer) > maxAltitudeM;
@@ -209,12 +275,14 @@ export function createGatedGeoJsonLayer({
       _enabled = true;
       if (!_detachCamera) _detachCamera = onCameraSettled(_viewer, refresh);
       _gated = true;
+      attachHover();
       refresh();
     },
 
     disable() {
       _enabled = false;
       if (_detachCamera) { _detachCamera(); _detachCamera = null; }
+      detachHover();
       setShown(false);
       governorRequestRender(`${id}-visibility`);
     },
@@ -227,6 +295,8 @@ export function createGatedGeoJsonLayer({
     destroy(viewer) {
       _enabled = false;
       if (_detachCamera) { _detachCamera(); _detachCamera = null; }
+      detachHover();
+      _lineFeatures.clear();
       if (_dataSource) { viewer.dataSources.remove(_dataSource, true); _dataSource = null; }
       for (const primitive of _linePrimitives) viewer.scene.groundPrimitives.remove(primitive);
       _linePrimitives = [];
@@ -248,6 +318,7 @@ export function createGatedGeoJsonLayer({
           : (_loaded ? `${source} · ${_count} en total` : source),
       };
     },
+    describeHover,
   };
   return layer;
 }

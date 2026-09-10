@@ -294,8 +294,12 @@ Thirteen layers and map sources. **Eleven have a keyless path.** Some offer addi
 | 🚢 **Puerto de Buenos Aires** | Ship calls at berth: operating / delayed / expected, with ship, flag, size, ETA/ETD | AGP ePuertos | 🟢 |
 | 🌫️ **Calidad de aire CABA** | APrA stations with latest CO / NO2 / PM10 | APrA | 🟢 |
 | 🏥 🚒 📍 **Salud · Bomberos · Servicios** | 3 139 health sites, 454 fire stations, 17 317 points of interest from ~75 city layers, filtered by category chips in DISPLAY (proximity-gated) | GCBA + Provincia | 🟢 |
-| 🏘️ 🚴 🌧️ **RENABAP · Ciclovías · Inundación La Plata** | 1 200 barrio polygons, 2 764 bike-lane segments, 6 047 high-flood-risk streets (altitude-gated) | RENABAP, GCBA, La Plata | 🟢 |
+| 🏘️ 🚴 🌧️ **RENABAP · Ciclovías · Inundación La Plata** | 2 103 RENABAP 2023 barrio polygons in CABA + PBA (hover for families, dwellings, area, tenure, services), 2 764 bike-lane segments, 6 047 high-flood-risk streets (altitude-gated, hover cards) | RENABAP 2023, GCBA, La Plata | 🟢 |
 | 🔊 💧 **Ruido · Arroyos CABA** | USIG raster overlays: daytime noise map, piped streams and basins | USIG | 🟢 |
+| 🕰️ **Fotos aéreas históricas CABA** | The city as it was: aerial photography 1940 / 1965 / 1978 / 2014 / 2017 and satellite mosaics 2004-2009, year + opacity picked in DISPLAY | USIG | 🟢 |
+| 🧭 **Mapas temáticos CABA** | 16 USIG city maps in one layer (tree census 2018, land prices, population, planning code, sidewalk width, noise day/night, streams, fairs, antennas, transformers, works, accessibility…), picked in DISPLAY with the official legend of each map | USIG | 🟢 |
+| 🏫 🚌 **Escuelas · Terminales y peajes PBA** | 19 848 schools (state / private, level, enrolment) and 196 bus terminals + toll plazas in Provincia de Buenos Aires (proximity-gated) | DGCyE PBA / IDEBA | 🟢 |
+| 🚏 🚍 **Colectivos Mar del Plata** | 10 081 bus stops and 128 route lines of General Pueyrredón, colored by line (gated) | Municipalidad Gral. Pueyrredón | 🟢 |
 | 🌧️ **Radar de lluvia** | Animated global precipitation radar (last ~80 min, 10-minute frames) draped on the globe | RainViewer | 🟢 |
 | 🛰️ **ARGENTINA satellite class** | SAOCOM, ARSAT, Satellogic ÑuSat, BugSat highlighted inside the Satellites layer | CelesTrak | 🟢 |
 

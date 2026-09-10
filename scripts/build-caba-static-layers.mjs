@@ -12,7 +12,7 @@
  *   - catalogo.datos.gba.gob.ar CSVs: bomberos, establecimientos de salud
  *     públicos 2025, estaciones ferroviarias 08/2026 — CC-BY 4.0.
  *   - cdn.buenosaires.gob.ar ciclovias.geojson — CC-BY-2.5-AR.
- *   - geoportal.obraspublicas.gob.ar RENABAP 2020 polygons (AMBA bbox).
+ *   - datos.gob.ar RENABAP 2023 polygons (CABA + Provincia de Buenos Aires).
  *   - geoserver-nodo2.ideba.gba.gob.ar La Plata flood-risk streets.
  */
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -167,36 +167,53 @@ Rebuild: \`node scripts/build-caba-static-layers.mjs servicios\`.
 `);
 }
 
-// ── RENABAP AMBA polygons ───────────────────────────────────────────────────
+// ── RENABAP polygons (Buenos Aires: CABA + Provincia) ─────────────────────
+// Official 2023-12 release of the Registro Nacional de Barrios Populares
+// (datos.gob.ar → archivo.infraestructura.gob.ar), clean UTF-8, 6 467 barrios
+// nationwide; we bundle the ones in CABA + Provincia de Buenos Aires.
 if (want('renabap')) {
-  const j = await getJson('https://geoportal.obraspublicas.gob.ar/geoserver/wfs?service=WFS&version=2.0.0&request=GetFeature&typeNames=geonode:renabap2020_smz&outputFormat=application/json&bbox=-59.0,-35.1,-58.2,-34.3,EPSG:4326&count=5000&srsName=EPSG:4326');
+  const j = await getJson('https://archivo.infraestructura.gob.ar/dataset/ssisu/20231205_info_publica.geojson');
   const features = [];
-  let vin = 0; let vout = 0;
+  let vin = 0; let vout = 0; let total = 0;
+  const tenureText = (v) => (/^s/i.test(clean(v)) ? 'Mayoría con título de propiedad' : /^n/i.test(clean(v)) ? 'Mayoría sin título de propiedad' : '');
   for (const f of j.features || []) {
+    total += 1;
+    const p = f.properties || {};
+    if (!/buenos aires/i.test(clean(p.provincia))) continue;
     const g = f.geometry; if (!g) continue;
     const polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
     const out = polys.map((rings) => rings.map((ring) => { vin += ring.length; const s = simplify(ring, 0.00015).map(round5); vout += s.length; return s; })).filter((rings) => rings[0]?.length >= 4);
     if (!out.length) continue;
-    const p = f.properties || {};
     features.push({
       type: 'Feature',
       id: `renabap-${p.id_renabap}`,
       geometry: out.length === 1 ? { type: 'Polygon', coordinates: out[0] } : { type: 'MultiPolygon', coordinates: out },
       properties: {
         id: `renabap-${p.id_renabap}`,
-        name: clean(p.Barrio),
-        tags: { name: clean(p.Barrio), partido: clean(p.Departamen), localidad: clean(p.Localidad), year: clean(p.ano_de_cre), families: clean(p.familias_e), electricity: clean(p.Electricid), water: clean(p.Agua), sewage: clean(p.Cloaca) },
+        name: clean(p.nombre_barrio),
+        tags: {
+          name: clean(p.nombre_barrio), provincia: clean(p.provincia), partido: clean(p.departamento), localidad: clean(p.localidad),
+          year: clean(p.anio_de_creacion), decade: clean(p.decada_de_creacion),
+          families: num(p.cantidad_familias_aproximada), dwellings: num(p.cantidad_viviendas_aproximadas), areaM2: num(p.superficie_m2),
+          kind: clean(p.clasificacion_barrio), tenure: tenureText(p.titulo_propiedad),
+          electricity: clean(p.energia_electrica), water: clean(p.agua_corriente), sewage: clean(p.efluentes_cloacales),
+          cooking: clean(p.cocina), heating: clean(p.calefaccion),
+        },
         type: 'renabap',
       },
     });
   }
-  writeLayer(path.join(LOCAL, 'renabap_amba'), features, `# RENABAP 2020 — barrios populares del AMBA
+  writeLayer(path.join(LOCAL, 'renabap_amba'), features, `# RENABAP 2023 — barrios populares de CABA + Provincia de Buenos Aires
 
-${features.length} polygons (bbox -59.0,-35.1,-58.2,-34.3) from the Ministerio de Obras Públicas GeoNode
-(\`geonode:renabap2020_smz\`, https://geoportal.obraspublicas.gob.ar/geoserver). Public national registry.
-Rings simplified 0.00015° (${vin} → ${vout} vertices). Fields: barrio, partido, localidad, year, families,
-electricity/water/sewage access. Snapshot ${TODAY}. Rebuild: \`node scripts/build-caba-static-layers.mjs renabap\`.
+${features.length} of ${total} polygons from the official Registro Nacional de Barrios Populares release of
+2023-12-05 (Secretaría de Integración Socio Urbana; datos.gob.ar dataset
+https://datos.gob.ar/dataset/habitat-registro-nacional-de-barrios-populares, file
+archivo.infraestructura.gob.ar/dataset/ssisu/20231205_info_publica.geojson). Public national registry.
+Rings simplified 0.00015° (${vin} → ${vout} vertices). Fields: barrio, partido, localidad, year/decade, families,
+dwellings, area (m²), kind (villa / asentamiento), tenure, electricity/water/sewage/cooking/heating access.
+Snapshot ${TODAY}. Rebuild: \`node scripts/build-caba-static-layers.mjs renabap\`.
 `);
+  console.log(`[renabap_amba] ${features.length} of ${total} features`);
 }
 
 // ── Ciclovías CABA ──────────────────────────────────────────────────────────

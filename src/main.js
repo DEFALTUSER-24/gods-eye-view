@@ -17,7 +17,9 @@ import cammesaGridLayer from './data/cammesaGrid.js';
 import subteLayer from './data/subte.js';
 import puertoBaLayer from './data/puertoBa.js';
 import aireCabaLayer from './data/aireCaba.js';
-import { cabaRuidoLayer, cabaHidricaLayer } from './data/usigImagery.js';
+import { cabaRuidoLayer, cabaHidricaLayer, cabaFotosAereasLayer, cabaTematicoLayer } from './data/usigImagery.js';
+import { initUsigVariantPicker } from './usigVariantPicker.js';
+import { loadUsigLegends } from './data/usigLegends.js';
 import conaeFiresLayer from './data/conaeFires.js';
 import edesurOutagesLayer from './data/edesurOutages.js';
 import fuelPricesLayer from './data/fuelPrices.js';
@@ -247,6 +249,8 @@ async function init() {
     dataManager.register(aireCabaLayer);
     dataManager.register(cabaRuidoLayer);
     dataManager.register(cabaHidricaLayer);
+    dataManager.register(cabaFotosAereasLayer);
+    dataManager.register(cabaTematicoLayer);
     dataManager.register(inaRiversLayer);
     dataManager.register(aisLiveVesselsLayer);
     dataManager.register(militaryInstallationsLayer);
@@ -270,6 +274,9 @@ async function init() {
     dataManager.buildTogglePanel(document.getElementById('data-toggles'));
     // DISPLAY-panel category chips for the CABA points-of-interest layer.
     initCabaPoiFilter(cabaPoiLayer, { dataManager });
+    // DISPLAY-panel pickers for the USIG variant layers (year / thematic map).
+    initUsigVariantPicker(cabaFotosAereasLayer, { dataManager, label: 'Fotos aéreas CABA', icon: '🕰️', chipsLabel: 'Año de la fotografía aérea' });
+    initUsigVariantPicker(cabaTematicoLayer, { dataManager, label: 'Mapas CABA', icon: '🧭', chipsLabel: 'Mapa temático USIG', loadLegends: loadUsigLegends });
     // Right-click on the globe or on any layer feature → Street View / Maps / copy.
     initContextMenu(viewer, { dataManager });
     styleManager.attachDataManager(dataManager);
