@@ -247,6 +247,24 @@ export const DATA_CREDITS = [
       '<a href="https://datos.mardelplata.gob.ar" target="_blank" rel="noopener">Datos Abiertos — Municipalidad de General Pueyrredón</a>',
   },
   {
+    key: 'ides-provinciales',
+    html:
+      'Salud, comisarías y bomberos provinciales: ' +
+      '<a href="https://www.idera.gob.ar" target="_blank" rel="noopener">IDEs provinciales (IDECOR Córdoba, IDE Corrientes, IDE Jujuy, IDE Río Negro, IDE Salta, SITU Santa Cruz, IDE Tierra del Fuego, IDE Chaco, IDE La Pampa, GeoSPLAN Tucumán, Municipalidad de Salta)</a>',
+  },
+  {
+    key: 'hidrocarburos',
+    html:
+      'Pozos de petróleo y gas: ' +
+      '<a href="https://hidrocarburos.energianeuquen.gob.ar" target="_blank" rel="noopener">Subsecretaría de Energía de Neuquén</a>, IDE La Pampa, IDE Tierra del Fuego',
+  },
+  {
+    key: 'mapa-educativo',
+    html:
+      'Escuelas del resto del país: ' +
+      '<a href="https://mapa.educacion.gob.ar" target="_blank" rel="noopener">Mapa Educativo Nacional — Ministerio de Educación (DIEE)</a>',
+  },
+  {
     key: 'ina',
     html:
       'Alturas de ríos: ' +

@@ -299,6 +299,9 @@ Thirteen layers and map sources. **Eleven have a keyless path.** Some offer addi
 | 🕰️ **Fotos aéreas históricas CABA** | The city as it was: aerial photography 1940 / 1965 / 1978 / 2014 / 2017 and satellite mosaics 2004-2009, year + opacity picked in DISPLAY | USIG | 🟢 |
 | 🧭 **Mapas temáticos CABA** | 16 USIG city maps in one layer (tree census 2018, land prices, population, planning code, sidewalk width, noise day/night, streams, fairs, antennas, transformers, works, accessibility…), picked in DISPLAY with the official legend of each map | USIG | 🟢 |
 | 🏫 🚌 **Escuelas · Terminales y peajes PBA** | 19 848 schools (state / private, level, enrolment) and 196 bus terminals + toll plazas in Provincia de Buenos Aires (proximity-gated) | DGCyE PBA / IDEBA | 🟢 |
+| 🛢️ **Pozos de petróleo y gas** | Every well in Neuquén (Vaca Muerta), La Pampa and Tierra del Fuego, colored active / inactive / abandoned, with fluid, operator, field and depth | Neuquén, La Pampa, TDF | 🟢 |
+| 🏥 🚓 **Salud · Comisarías y bomberos provincias** | Public health facilities, police and fire stations published by the provincial spatial-data infrastructures (Córdoba, Corrientes, Jujuy, Río Negro, Salta, Santa Cruz, TDF, Chaco, La Pampa, Tucumán) | IDEs provinciales | 🟢 |
+| 🏫 **Escuelas resto del país** | Every school outside Buenos Aires from the Mapa Educativo Nacional (level, sector, setting), proximity-gated | Ministerio de Educación | 🟢 |
 | 🚏 🚍 **Colectivos Mar del Plata** | 10 081 bus stops and 128 route lines of General Pueyrredón, colored by line (gated) | Municipalidad Gral. Pueyrredón | 🟢 |
 | 🌧️ **Radar de lluvia** | Animated global precipitation radar (last ~80 min, 10-minute frames) draped on the globe | RainViewer | 🟢 |
 | 🛰️ **ARGENTINA satellite class** | SAOCOM, ARSAT, Satellogic ÑuSat, BugSat highlighted inside the Satellites layer | CelesTrak | 🟢 |

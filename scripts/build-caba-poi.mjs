@@ -78,6 +78,9 @@ for (const job of jobs) {
       if (!Number.isFinite(lon) || !Number.isFinite(lat) || f.geometry?.type !== 'Point') continue;
       if (lat < -34.75 || lat > -34.5 || lon < -58.6 || lon > -58.3) continue;
       const p = f.properties || {};
+      // epok ignores the rubros= filter on concesiones: keep only the real antennas.
+      if (job.group === 'concesiones' && job.name === 'Antenas' && String(p.Rubro || '').toUpperCase() !== 'ANTENAS') continue;
+      if (job.group === 'concesiones' && job.name === 'Playas de estacionamiento' && !/ESTACIONAMIENTO/i.test(String(p.Rubro || ''))) continue;
       const name = clean(p.Nombre || p.nombre || p.Titulo || p.titulo || p.Name || job.name);
       features.push({
         type: 'Feature',

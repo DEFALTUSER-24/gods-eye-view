@@ -673,10 +673,10 @@ test('the voice TOOL SCHEMA is byte-identical to main — the mission mapping is
   // …plus 'ina-rivers'.
   // …plus the CABA/GBA pack (subte, puerto-ba, aire-caba, salud, bomberos,
   // servicios, renabap, ciclovías, inundación La Plata, ruido, hidrica).
-  assert.equal(block.length, 33027, 'tool schema byte length drifted from the pinned release schema');
+  assert.equal(block.length, 33325, 'tool schema byte length drifted from the pinned release schema');
   assert.equal(
     crypto.createHash('sha256').update(block).digest('hex'),
-    '0b2d1b58af7905acc6e1a644f2b5d4403c4a6ecd6f159cf8de01cc09ddab36ec',
+    '6838eb6de539aee8f05ded55a90a84351a65158fa47e6e09b2e83816ed1fa021',
     'the first-run missions must ride EXISTING tools: no schema edit, no cache bust',
   );
 

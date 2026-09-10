@@ -21,6 +21,10 @@ import pbaEscuelasUrl from './local_data/pba_escuelas/pba_escuelas.geojsonl?url'
 import pbaTerminalesUrl from './local_data/pba_terminales/pba_terminales.geojsonl?url';
 import mdpParadasUrl from './local_data/mdp_paradas/mdp_paradas.geojsonl?url';
 import mdpRecorridosUrl from './local_data/mdp_recorridos/mdp_recorridos.geojsonl?url';
+import pozosUrl from './local_data/pozos_hidrocarburos/pozos_hidrocarburos.geojsonl?url';
+import provSaludUrl from './local_data/prov_salud/prov_salud.geojsonl?url';
+import provSeguridadUrl from './local_data/prov_seguridad/prov_seguridad.geojsonl?url';
+import escuelasArUrl from './local_data/escuelas_argentina/escuelas_argentina.geojsonl?url';
 
 /**
  * Registry of local GeoJSON datasets.
@@ -289,6 +293,77 @@ const mdpRecorridos = createGatedGeoJsonLayer({
   hoverOf: (p, t) => ({ title: t.linea ? `Línea ${t.linea}` : (p.name || 'Recorrido'), details: [t.ramal || ''] }),
 });
 
+// ── Resto del país: IDEs provinciales + Mapa Educativo Nacional (scripts/build-provincias-layers.mjs) ──
+const POZO_COLORS = { Activo: '#4cd964', Inactivo: '#ffd166', Abandonado: '#8a94a0' };
+const pozosHidrocarburos = createProximityPointsLayer({
+  id: 'local-pozos-hidrocarburos',
+  sourceUrl: 'https://hidrocarburos.energianeuquen.gob.ar/geoserver/web/',
+  group: 'argentina',
+  url: pozosUrl,
+  name: 'Pozos de petróleo y gas',
+  color: '#cfd8dc',
+  icon: '🛢️',
+  source: 'Neuquén · La Pampa · TDF',
+  maxAltitudeM: 400_000,
+  maxPoints: 1200,
+  labelMax: 60,
+  pixelSize: 5,
+  colorOf: (p, t) => POZO_COLORS[t.estado] || '#cfd8dc',
+  detailsOf: (p, t) => [[t.estado, t.fluido].filter(Boolean).join(' · '), t.operador || '', [t.yacimiento || t.area || '', t.anio ? `perforado ${t.anio}` : '', t.profundidadM ? `${t.profundidadM} m` : ''].filter(Boolean).join(' · ')].filter(Boolean).map((s) => String(s).toUpperCase()),
+  analystFields: ['estado', 'fluido', 'operador', 'yacimiento', 'provincia', 'anio'],
+});
+
+const provSalud = createProximityPointsLayer({
+  id: 'local-prov-salud',
+  sourceUrl: 'https://www.idera.gob.ar/',
+  group: 'argentina',
+  url: provSaludUrl,
+  name: 'Salud pública provincias',
+  color: '#ff5c8a',
+  icon: '🏥',
+  source: 'IDEs provinciales',
+  maxAltitudeM: 300_000,
+  maxPoints: 900,
+  labelMax: 80,
+  colorOf: (p, t) => (/hospital/i.test(t.healthcare || '') ? '#ff5c8a' : '#ff9ab5'),
+  detailsOf: (p, t) => [t.healthcare || '', [t.localidad, t.provincia].filter(Boolean).join(' · '), t['addr:street'] || ''].filter(Boolean).map((s) => String(s).toUpperCase()),
+  analystFields: ['healthcare', 'provincia', 'localidad', 'fuente'],
+});
+
+const provSeguridad = createProximityPointsLayer({
+  id: 'local-prov-seguridad',
+  sourceUrl: 'https://www.idera.gob.ar/',
+  group: 'argentina',
+  url: provSeguridadUrl,
+  name: 'Comisarías y bomberos provincias',
+  color: '#4f8cff',
+  icon: '🚓',
+  source: 'IDEs provinciales',
+  maxAltitudeM: 600_000,
+  maxPoints: 700,
+  labelMax: 80,
+  colorOf: (p, t) => (t.kind === 'fire' ? '#ff4d4d' : '#4f8cff'),
+  detailsOf: (p, t) => [t.kind === 'fire' ? 'Bomberos' : (t.tipo || 'Policía'), [t.localidad, t.provincia].filter(Boolean).join(' · '), t['addr:street'] || ''].filter(Boolean).map((s) => String(s).toUpperCase()),
+  analystFields: ['kind', 'provincia', 'localidad', 'fuente'],
+});
+
+const escuelasArgentina = createProximityPointsLayer({
+  id: 'local-escuelas-argentina',
+  sourceUrl: 'https://mapa.educacion.gob.ar/',
+  group: 'argentina',
+  url: escuelasArUrl,
+  name: 'Escuelas resto del país',
+  color: '#ffd166',
+  icon: '🏫',
+  source: 'Mapa Educativo Nacional',
+  maxAltitudeM: 40_000,
+  maxPoints: 900,
+  labelMax: 70,
+  colorOf: (p, t) => (t.sector === 'Privado' ? '#ffb347' : '#ffd166'),
+  detailsOf: (p, t) => [t.nivel || '', [t.sector, t.ambito].filter(Boolean).join(' · '), t.provincia || ''].filter(Boolean).map((s) => String(s).toUpperCase()),
+  analystFields: ['nivel', 'sector', 'ambito', 'provincia'],
+});
+
 export default [
   baSalud,
   baBomberos,
@@ -305,6 +380,10 @@ export default [
   pbaTerminales,
   mdpParadas,
   mdpRecorridos,
+  pozosHidrocarburos,
+  provSalud,
+  provSeguridad,
+  escuelasArgentina,
   submarineCablesLayer,
   fires,
 ];
