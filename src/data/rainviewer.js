@@ -14,10 +14,18 @@ import { governorRequestRender } from '../renderGovernor.js';
 
 export const RAINVIEWER_API_URL = '/api/rainviewer/maps';
 export const RAINVIEWER_POLL_MS = 5 * 60_000;
-export const RAINVIEWER_FRAME_COUNT = 8;
-export const RAINVIEWER_FRAME_MS = 650;
-export const RAINVIEWER_HOLD_LAST_MS = 1600;
+export const RAINVIEWER_FRAME_COUNT = 6;
+export const RAINVIEWER_FRAME_MS = 900;
+export const RAINVIEWER_HOLD_LAST_MS = 2200;
+/** While the globe still has imagery tiles in flight, re-check this often instead of advancing. */
+export const RAINVIEWER_WAIT_TILES_MS = 250;
 export const RAINVIEWER_ALPHA = 0.78;
+/**
+ * Hidden frames keep a barely-visible alpha instead of 0: Cesium does not
+ * fetch (or retain) imagery for a layer at alpha 0, so with 0 only the
+ * current frame ever loaded and every other frame painted coarse tiles.
+ */
+export const RAINVIEWER_HIDDEN_ALPHA = 0.004;
 export const RAINVIEWER_COLOR_SCHEME = 2; // "Universal Blue"
 // RainViewer serves radar tiles up to zoom 7 (measured 2026-09-10); any deeper
 // request returns a grey "Zoom Level Not Supported" placeholder that tiles the
@@ -74,7 +82,7 @@ export function createRainviewerLayer({
     _frameIndex = ((index % _frames.length) + _frames.length) % _frames.length;
     const current = _frames[_frameIndex].path;
     for (const [framePath, record] of _layers) {
-      record.layer.alpha = framePath === current ? RAINVIEWER_ALPHA : 0;
+      record.layer.alpha = framePath === current ? RAINVIEWER_ALPHA : RAINVIEWER_HIDDEN_ALPHA;
       record.layer.show = _enabled;
     }
     governorRequestRender('rainviewer-frame');
@@ -89,10 +97,25 @@ export function createRainviewerLayer({
     stopAnimation();
     if (!_enabled || _frames.length < 2) return;
     const atLast = _frameIndex === _frames.length - 1;
-    _timer = setTimeout(() => {
-      showFrame(_frameIndex + 1);
-      scheduleNext();
-    }, atLast ? RAINVIEWER_HOLD_LAST_MS : RAINVIEWER_FRAME_MS);
+    _timer = setTimeout(advanceWhenLoaded, atLast ? RAINVIEWER_HOLD_LAST_MS : RAINVIEWER_FRAME_MS);
+  }
+
+  /**
+   * Advance only once every imagery tile in view has loaded. All frame layers
+   * stay shown at alpha 0, so their tiles load together; switching while some
+   * are still in flight paints Cesium's coarse parent tiles — big blurry
+   * blocks for one frame, sharp radar the next.
+   */
+  function advanceWhenLoaded() {
+    _timer = null;
+    if (!_enabled) return;
+    const globe = _viewer?.scene?.globe;
+    if (globe && globe.tilesLoaded === false) {
+      _timer = setTimeout(advanceWhenLoaded, RAINVIEWER_WAIT_TILES_MS);
+      return;
+    }
+    showFrame(_frameIndex + 1);
+    scheduleNext();
   }
 
   function syncLayers(catalog) {
@@ -107,7 +130,7 @@ export function createRainviewerLayer({
       if (_layers.has(frame.path)) continue;
       const provider = createProvider(frameTileTemplate(catalog.host, frame.path));
       const layer = _viewer.imageryLayers.addImageryProvider(provider);
-      layer.alpha = 0;
+      layer.alpha = RAINVIEWER_HIDDEN_ALPHA;
       layer.show = _enabled;
       _layers.set(frame.path, { layer, time: frame.time });
     }
