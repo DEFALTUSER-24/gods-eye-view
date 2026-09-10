@@ -194,6 +194,7 @@ export function createColectivosLayer({
   const layer = {
     id: 'colectivos',
     group: 'argentina',
+    sourceUrl: 'https://api-transporte.buenosaires.gob.ar/',
     name: 'Colectivos (AMBA + Bahía Blanca)',
     icon: '🚌',
     source: 'BA Transporte · GPS Bahía',

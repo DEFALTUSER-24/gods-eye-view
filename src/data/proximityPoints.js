@@ -85,6 +85,7 @@ export function createProximityPointsLayer({
   url,
   name,
   group = null,
+  sourceUrl = '',
   icon = '•',
   source = 'Local',
   color = '#ffffff',
@@ -259,6 +260,7 @@ export function createProximityPointsLayer({
   const layer = {
     id,
     group,
+    sourceUrl,
     name,
     icon,
     source,

@@ -15,6 +15,7 @@ export function createGatedGeoJsonLayer({
   url,
   name,
   group = null,
+  sourceUrl = '',
   icon = '▭',
   source = 'Local',
   maxAltitudeM = 120_000,
@@ -51,6 +52,62 @@ export function createGatedGeoJsonLayer({
     return { type: 'FeatureCollection', features };
   }
 
+  /** @type {object[]} GroundPolylinePrimitive batches (line-only datasets) */
+  let _linePrimitives = [];
+
+  function loadLinePrimitives(collection) {
+    const BATCH = 2000;
+    let instances = [];
+    let count = 0;
+    const flush = () => {
+      if (!instances.length) return;
+      const primitive = new Cesium.GroundPolylinePrimitive({
+        geometryInstances: instances,
+        appearance: new Cesium.PolylineColorAppearance(),
+        asynchronous: true,
+        show: _enabled && !_gated,
+      });
+      _viewer.scene.groundPrimitives.add(primitive);
+      _linePrimitives.push(primitive);
+      instances = [];
+    };
+    for (const f of collection.features) {
+      const props = f.properties || {};
+      const tags = props.tags || {};
+      const style = { ...defaultStyle, ...(typeof styleOf === 'function' ? styleOf(props, tags) : {}) };
+      const parts = f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.coordinates;
+      for (const part of parts) {
+        const flat = [];
+        let last = null;
+        for (const c of part) {
+          if (!Number.isFinite(c?.[0]) || !Number.isFinite(c?.[1])) continue;
+          if (last && last[0] === c[0] && last[1] === c[1]) continue; // duplicate vertex breaks the geometry
+          flat.push(c[0], c[1]);
+          last = c;
+        }
+        if (flat.length < 4) continue;
+        instances.push(new Cesium.GeometryInstance({
+          geometry: new Cesium.GroundPolylineGeometry({ positions: Cesium.Cartesian3.fromDegreesArray(flat), width: style.strokeWidth }),
+          attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(color(style.stroke, 0.95)) },
+          id: `${id}:${f.id ?? count}`,
+        }));
+        count += 1;
+        if (instances.length >= BATCH) flush();
+      }
+    }
+    flush();
+    _count = count;
+    _loaded = true;
+    _lastUpdate = Date.now();
+    _lastError = null;
+    console.log(`[Data:${id}] Loaded ${count} lines in ${_linePrimitives.length} ground primitives`);
+  }
+
+  function setShown(shown) {
+    if (_dataSource) _dataSource.show = shown;
+    for (const primitive of _linePrimitives) primitive.show = shown;
+  }
+
   async function ensureLoaded() {
     if (_loaded || !_viewer) return;
     if (!_loadPromise) {
@@ -63,6 +120,15 @@ export function createGatedGeoJsonLayer({
         let collection = null;
         try { const parsed = JSON.parse(text); if (Array.isArray(parsed?.features)) collection = parsed; } catch { collection = null; }
         if (!collection) collection = parseGeoJsonl(text);
+        // Line-only datasets (ciclovías, flood-risk streets: thousands of short
+        // segments) go into batched GroundPolylinePrimitives — one draw call per
+        // ~2 000 lines — instead of one entity each, which stalls the globe.
+        const linesOnly = collection.features.length > 0
+          && collection.features.every((f) => f.geometry?.type === 'LineString' || f.geometry?.type === 'MultiLineString');
+        if (linesOnly && Cesium.GroundPolylinePrimitive.isSupported(_viewer.scene)) {
+          loadLinePrimitives(collection);
+          return;
+        }
         const ds = await Cesium.GeoJsonDataSource.load(collection, { clampToGround: true });
         for (const entity of ds.entities.values) {
           const props = entity.properties;
@@ -114,10 +180,11 @@ export function createGatedGeoJsonLayer({
     _gated = gated;
     if (!gated) {
       ensureLoaded().then(() => {
-        if (_dataSource) { _dataSource.show = _enabled && !_gated; governorRequestRender(`${id}-show`); }
+        setShown(_enabled && !_gated);
+        governorRequestRender(`${id}-show`);
       }).catch(() => {});
-    } else if (_dataSource) {
-      _dataSource.show = false;
+    } else {
+      setShown(false);
       governorRequestRender(`${id}-hide`);
     }
   }
@@ -125,6 +192,7 @@ export function createGatedGeoJsonLayer({
   const layer = {
     id,
     group,
+    sourceUrl,
     name,
     icon,
     source,
@@ -147,7 +215,7 @@ export function createGatedGeoJsonLayer({
     disable() {
       _enabled = false;
       if (_detachCamera) { _detachCamera(); _detachCamera = null; }
-      if (_dataSource) _dataSource.show = false;
+      setShown(false);
       governorRequestRender(`${id}-visibility`);
     },
 
@@ -160,6 +228,8 @@ export function createGatedGeoJsonLayer({
       _enabled = false;
       if (_detachCamera) { _detachCamera(); _detachCamera = null; }
       if (_dataSource) { viewer.dataSources.remove(_dataSource, true); _dataSource = null; }
+      for (const primitive of _linePrimitives) viewer.scene.groundPrimitives.remove(primitive);
+      _linePrimitives = [];
       _loaded = false;
       _loadPromise = null;
       _viewer = null;

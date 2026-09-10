@@ -153,6 +153,7 @@ export function createSubteLayer({
   const layer = {
     id: 'subte',
     group: 'argentina',
+    sourceUrl: 'https://mapa.buenosaires.gob.ar/',
     name: 'Subte (estado del servicio)',
     icon: '🚇',
     source: 'Buenos Aires Ciudad',

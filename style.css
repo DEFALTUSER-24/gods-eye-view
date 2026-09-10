@@ -9553,3 +9553,24 @@ body.scene-playback-mode #key-setup {
 .pp-chip.active { opacity: 1; color: var(--text-primary, #eef4f8); border-color: var(--chip-color); background: color-mix(in srgb, var(--chip-color) 16%, transparent); }
 .pp-chip-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--chip-color); box-shadow: 0 0 6px var(--chip-color); }
 .pp-chip-count { font-size: 10px; opacity: 0.7; }
+
+/* DATA LAYERS · provenance link (Argentina pack) */
+.data-source-link {
+  margin-left: 6px; font-size: 11px; line-height: 1; text-decoration: none;
+  color: var(--accent, #7fd3ff); opacity: 0.55; transition: opacity 120ms ease;
+}
+.data-source-link:hover { opacity: 1; }
+
+/* LOCATION toolbar · Street View shortcut */
+.location-toolbar-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: auto; margin-right: 6px;
+  padding: 3px 9px; border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary, #9fb3c4);
+  font: inherit; font-size: 10px; letter-spacing: 0.12em; cursor: pointer;
+}
+.location-toolbar-btn:hover { background: rgba(255, 255, 255, 0.1); color: var(--text-primary, #eef4f8); }
+.location-toolbar-btn.shake { animation: sv-shake 0.35s ease; }
+@keyframes sv-shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }

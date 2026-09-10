@@ -80,6 +80,7 @@ export function createConaeFiresLayer({
   const layer = {
     id: 'conae-fires',
     group: 'argentina',
+    sourceUrl: 'https://focosdecalor.conae.gov.ar/',
     name: 'Focos de calor CONAE',
     icon: '🔥',
     source: 'CONAE · GOES-19',

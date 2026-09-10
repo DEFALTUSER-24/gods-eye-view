@@ -182,6 +182,7 @@ export function createSmnWeatherLayer({
   const layer = {
     id: 'smn-weather',
     group: 'argentina',
+    sourceUrl: 'https://www.smn.gob.ar/descarga-de-datos',
     name: 'Clima SMN (Argentina)',
     icon: '🌡️',
     source: 'SMN',

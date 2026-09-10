@@ -153,6 +153,7 @@ export function createRutasEstadoLayer({
   const layer = {
     id: 'rutas-estado',
     group: 'argentina',
+    sourceUrl: 'https://www.argentina.gob.ar/transporte/vialidad-nacional/estado-de-rutas',
     name: 'Estado de rutas nacionales',
     icon: '🛣️',
     source: 'Vialidad Nacional · rutas.ar',

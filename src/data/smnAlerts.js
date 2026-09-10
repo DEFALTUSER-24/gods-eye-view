@@ -125,6 +125,7 @@ export function createSmnAlertsLayer({
   const layer = {
     id: 'smn-alerts',
     group: 'argentina',
+    sourceUrl: 'https://www.smn.gob.ar/alertas',
     name: 'Alertas meteorológicas SMN',
     icon: '⚠️',
     source: 'SMN · CAP',

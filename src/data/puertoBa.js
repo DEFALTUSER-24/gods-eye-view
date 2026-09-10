@@ -138,6 +138,7 @@ export function createPuertoBaLayer({
   const layer = {
     id: 'puerto-ba',
     group: 'argentina',
+    sourceUrl: 'https://www.argentina.gob.ar/puerto-buenos-aires',
     name: 'Puerto de Buenos Aires',
     icon: '🚢',
     source: 'AGP ePuertos',

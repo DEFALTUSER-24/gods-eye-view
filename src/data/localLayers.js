@@ -53,6 +53,7 @@ const dams = createLocalGeoJsonLayer({
 // become primitives, so toggling them never stalls the globe.
 const cabaRadares = createProximityPointsLayer({
   id: 'local-caba-radares',
+  sourceUrl: 'https://data.buenosaires.gob.ar/dataset/camaras-fijas-control-vehicular',
   group: 'argentina',
   url: cabaRadaresUrl,
   name: 'Fotomultas BA (CABA + PBA)',
@@ -69,6 +70,7 @@ const cabaRadares = createProximityPointsLayer({
 // Provincia de Buenos Aires police stations (Ministerio de Seguridad ArcGIS).
 const pbaComisarias = createProximityPointsLayer({
   id: 'local-pba-comisarias',
+  sourceUrl: 'https://gis.mseg.gba.gov.ar/server/rest/services/Dependencias_Policiales_WMS/MapServer',
   group: 'argentina',
   url: pbaComisariasUrl,
   name: 'Comisarías PBA',
@@ -85,6 +87,7 @@ const pbaComisarias = createProximityPointsLayer({
 // Train stations with service (Ministerio de Transporte de la Nación, 2022).
 const trenEstaciones = createProximityPointsLayer({
   id: 'local-tren-estaciones',
+  sourceUrl: 'https://ide.transporte.gob.ar/',
   group: 'argentina',
   url: trenEstacionesUrl,
   name: 'Estaciones de tren',
@@ -112,6 +115,7 @@ const fires = createFirmsHeatmapLayer({
 // ── CABA / GBA round 2: bundled open datasets (see scripts/build-caba-static-layers.mjs) ──
 const baSalud = createProximityPointsLayer({
   id: 'local-ba-salud',
+  sourceUrl: 'https://catalogo.datos.gba.gob.ar/dataset/establecimientos-de-salud-publicos',
   group: 'argentina',
   url: baSaludUrl,
   name: 'Salud pública BA',
@@ -128,6 +132,7 @@ const baSalud = createProximityPointsLayer({
 
 const baBomberos = createProximityPointsLayer({
   id: 'local-ba-bomberos',
+  sourceUrl: 'https://catalogo.datos.gba.gob.ar/dataset/cuarteles-de-bomberos',
   group: 'argentina',
   url: baBomberosUrl,
   name: 'Bomberos BA',
@@ -145,6 +150,7 @@ const baBomberos = createProximityPointsLayer({
 // filter by `tags.category`, and only the view's neighbourhood is drawn.
 export const cabaPoiLayer = createProximityPointsLayer({
   id: 'local-caba-servicios',
+  sourceUrl: 'https://mapa.buenosaires.gob.ar/',
   group: 'argentina',
   url: cabaPoiUrl,
   name: 'Puntos de interés CABA',
@@ -162,6 +168,7 @@ const cabaServicios = cabaPoiLayer;
 
 const renabap = createGatedGeoJsonLayer({
   id: 'local-renabap-amba',
+  sourceUrl: 'https://www.argentina.gob.ar/habitat/renabap',
   group: 'argentina',
   url: renabapUrl,
   name: 'Barrios populares (RENABAP)',
@@ -173,6 +180,7 @@ const renabap = createGatedGeoJsonLayer({
 
 const ciclovias = createGatedGeoJsonLayer({
   id: 'local-caba-ciclovias',
+  sourceUrl: 'https://data.buenosaires.gob.ar/dataset/ciclovias',
   group: 'argentina',
   url: cicloviasUrl,
   name: 'Ciclovías CABA',
@@ -185,6 +193,7 @@ const ciclovias = createGatedGeoJsonLayer({
 
 const laplataInundacion = createGatedGeoJsonLayer({
   id: 'local-laplata-inundacion',
+  sourceUrl: 'https://geoserver-nodo2.ideba.gba.gob.ar/geoserver/laplata/wfs?service=WFS&request=GetCapabilities',
   group: 'argentina',
   url: laplataUrl,
   name: 'Riesgo de inundación La Plata',

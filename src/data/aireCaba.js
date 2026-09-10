@@ -120,6 +120,7 @@ export function createAireCabaLayer({
   const layer = {
     id: 'aire-caba',
     group: 'argentina',
+    sourceUrl: 'https://data.buenosaires.gob.ar/dataset/calidad-aire',
     name: 'Calidad de aire CABA',
     icon: '🌫️',
     source: 'APrA',

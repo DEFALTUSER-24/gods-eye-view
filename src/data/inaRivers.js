@@ -160,6 +160,7 @@ export function createInaRiversLayer({
   const layer = {
     id: 'ina-rivers',
     group: 'argentina',
+    sourceUrl: 'https://alerta.ina.gob.ar/',
     name: 'Ríos INA (alturas)',
     icon: '🌊',
     source: 'INA · Prefectura · SHN',

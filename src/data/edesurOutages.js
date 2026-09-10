@@ -127,6 +127,7 @@ export function createEdesurOutagesLayer({
   const layer = {
     id: 'edesur-outages',
     group: 'argentina',
+    sourceUrl: 'https://rsc.edesur.com.ar/outage-report.html',
     name: 'Cortes de luz Edesur',
     icon: '💡',
     source: 'Edesur',

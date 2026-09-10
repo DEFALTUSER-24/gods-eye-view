@@ -2062,6 +2062,20 @@ export class DataLayerManager {
       const left = document.createElement('div');
       left.className = 'data-toggle-left';
       left.innerHTML = `<span class="data-icon">${layer.icon}</span><span class="data-name">${layer.name}</span>`;
+      // Optional provenance link (Argentina pack): opens the dataset's page.
+      const sourceUrl = this.layers.get(layer.id)?.module?.sourceUrl;
+      if (typeof sourceUrl === 'string' && sourceUrl.startsWith('http')) {
+        const link = document.createElement('a');
+        link.className = 'data-source-link';
+        link.href = sourceUrl;
+        link.target = '_blank';
+        link.rel = 'noopener';
+        link.title = `Fuente: ${sourceUrl}`;
+        link.setAttribute('aria-label', `Fuente de ${layer.name}`);
+        link.textContent = '↗';
+        link.addEventListener('click', (event) => event.stopPropagation());
+        left.appendChild(link);
+      }
 
       const right = document.createElement('div');
       right.className = 'data-toggle-right';

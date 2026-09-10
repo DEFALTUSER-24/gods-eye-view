@@ -115,6 +115,7 @@ export function createRainviewerLayer({
 
   const layer = {
     id: 'rainviewer-radar',
+    sourceUrl: 'https://www.rainviewer.com/',
     name: 'Radar de lluvia',
     icon: '🌧️',
     source: 'RainViewer',

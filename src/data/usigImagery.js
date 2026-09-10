@@ -16,6 +16,7 @@ export function createUsigImageryLayer({
   name,
   wmsLayer,
   group = 'argentina',
+  sourceUrl = 'https://mapa.buenosaires.gob.ar/',
   icon = '🗺️',
   source = 'USIG · Buenos Aires Ciudad',
   alpha = 0.75,
@@ -48,6 +49,7 @@ export function createUsigImageryLayer({
   return {
     id,
     group,
+    sourceUrl,
     name,
     icon,
     source,

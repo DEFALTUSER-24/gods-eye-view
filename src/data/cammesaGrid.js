@@ -156,6 +156,7 @@ export function createCammesaGridLayer({
   const layer = {
     id: 'cammesa-grid',
     group: 'argentina',
+    sourceUrl: 'https://cammesaweb.cammesa.com/demanda-y-generacion-en-tiempo-real/',
     name: 'Red Eléctrica (Argentina)',
     icon: '⚡',
     source: 'CAMMESA',

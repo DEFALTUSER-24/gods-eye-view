@@ -153,6 +153,7 @@ export function createFuelPricesLayer({
   const layer = {
     id: 'fuel-prices',
     group: 'argentina',
+    sourceUrl: 'http://datos.energia.gob.ar/dataset/precios-en-surtidor',
     name: 'Precios de nafta',
     icon: '⛽',
     source: 'Sec. de Energía',
