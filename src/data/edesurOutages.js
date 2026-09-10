@@ -212,6 +212,11 @@ export function createEdesurOutagesLayer({
       _lastError = null;
     },
 
+    describePick(pickedId) {
+      const o = _byId.get(String(pickedId).replace(/^edesur:/, ''))?.outage;
+      return o ? { title: `${o.locality || 'Edesur'} · ${o.customers} clientes`, details: outageCardDetails(o) } : null;
+    },
+
     getAnalystRecords(maxCount = 500) {
       if (!_enabled || !_byId.size) return [];
       const out = [];

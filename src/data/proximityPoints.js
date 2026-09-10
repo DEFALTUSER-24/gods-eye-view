@@ -335,6 +335,13 @@ export function createProximityPointsLayer({
       return out;
     },
 
+    describePick(pickedId) {
+      const row = _visible.get(String(pickedId).replace(`${id}:`, ''))?.row;
+      if (!row) return null;
+      const details = typeof detailsOf === 'function' ? detailsOf(row.props, row.tags) : [];
+      return { title: row.name || name, details };
+    },
+
     getRow(pickedId) {
       return _visible.get(String(pickedId).replace(`${id}:`, ''))?.row || null;
     },

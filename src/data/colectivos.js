@@ -327,6 +327,11 @@ export function createColectivosLayer({
     },
 
     /** Vehicle by picked primitive id (click-to-inspect seam). */
+    describePick(pickedId) {
+      const v = _byId.get(String(pickedId))?.vehicle;
+      return v ? { title: `Línea ${v.route} · ${v.label || v.id}`, details: [v.agency, v.headsign].filter(Boolean) } : null;
+    },
+
     getVehicle(id) {
       return _byId.get(String(id))?.vehicle || null;
     },

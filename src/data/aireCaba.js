@@ -185,6 +185,11 @@ export function createAireCabaLayer({
       _byId = new Map();
     },
 
+    describePick(pickedId) {
+      const s = _byId.get(String(pickedId).replace(/^apra:/, ''))?.station;
+      return s ? { title: `Aire ${s.name}`, details: stationCardDetails(s) } : null;
+    },
+
     getAnalystRecords(maxCount = 20) {
       if (!_enabled) return [];
       return Array.from(_byId.values()).slice(0, maxCount).map(({ station }) => ({

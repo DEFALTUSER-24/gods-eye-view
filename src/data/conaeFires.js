@@ -162,6 +162,11 @@ export function createConaeFiresLayer({
       _lastError = null;
     },
 
+    describePick(pickedId) {
+      const h = _byId.get(String(pickedId).replace(/^conae:/, ''))?.hotspot;
+      return h ? { title: `Foco de calor ${h.satellite}`, details: [h.frpMw ? `FRP ${Math.round(h.frpMw)} MW` : '', new Date(h.tsMs).toLocaleString()].filter(Boolean) } : null;
+    },
+
     getHotspot(id) {
       return _byId.get(String(id).replace(/^conae:/, ''))?.hotspot || null;
     },

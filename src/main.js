@@ -31,6 +31,7 @@ import militaryAwarenessLayer from './data/militaryAwareness.js';
 import localDataLayers, { cabaPoiLayer } from './data/localLayers.js';
 import { initCabaPoiFilter } from './cabaPoiFilter.js';
 import { initStreetViewButton } from './streetViewLink.js';
+import { initContextMenu } from './contextMenu.js';
 import { LAYER_STATE_REGISTRY } from './data/layerState.js';
 import { registerDataCredits } from './data/dataCredits.js';
 import { SceneDirector } from './scenes/director.js';
@@ -272,6 +273,8 @@ async function init() {
     dataManager.buildTogglePanel(document.getElementById('data-toggles'));
     // DISPLAY-panel category chips for the CABA points-of-interest layer.
     initCabaPoiFilter(cabaPoiLayer, { dataManager });
+    // Right-click on the globe or on any layer feature → Street View / Maps / copy.
+    initContextMenu(viewer, { dataManager });
     styleManager.attachDataManager(dataManager);
 
     // Initialize deterministic scene playback for social clip capture

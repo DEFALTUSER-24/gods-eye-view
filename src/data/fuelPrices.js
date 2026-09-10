@@ -244,6 +244,11 @@ export function createFuelPricesLayer({
       _lastError = null;
     },
 
+    describePick(pickedId) {
+      const station = _byId.get(String(pickedId).replace(/^fuel:/, ''))?.station;
+      return station ? { title: `${station.brand || station.name} · ${station.locality}`, details: stationCardDetails(station) } : null;
+    },
+
     getStation(id) {
       return _byId.get(String(id).replace(/^fuel:/, ''))?.station || null;
     },

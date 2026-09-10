@@ -250,6 +250,11 @@ export function createInaRiversLayer({
       _lastError = null;
     },
 
+    describePick(pickedId) {
+      const station = _byId.get(Number(String(pickedId).replace(/^ina:/, '')))?.station;
+      return station ? { title: stationTitle(station), details: stationCardDetails(station) } : null;
+    },
+
     getStation(id) {
       return _byId.get(Number(String(id).replace(/^ina:/, '')))?.station || null;
     },

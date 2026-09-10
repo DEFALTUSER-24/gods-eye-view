@@ -267,6 +267,11 @@ export function createSmnWeatherLayer({
       _lastError = null;
     },
 
+    describePick(pickedId) {
+      const s = _byId.get(String(pickedId).replace(/^smn:/, ''))?.station;
+      return s ? { title: stationLabel(s), details: [s.sky, s.humidity !== null ? `Humedad ${s.humidity}%` : '', s.pressureHpa ? `${s.pressureHpa} hPa` : ''].filter(Boolean) } : null;
+    },
+
     getStation(id) {
       return _byId.get(String(id).replace(/^smn:/, ''))?.station || null;
     },

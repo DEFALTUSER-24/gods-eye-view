@@ -204,6 +204,11 @@ export function createPuertoBaLayer({
       _byId = new Map();
     },
 
+    describePick(pickedId) {
+      const c = _byId.get(String(pickedId).replace(/^agp:/, ''))?.call;
+      return c ? { title: c.name, details: callCardDetails(c) } : null;
+    },
+
     getAnalystRecords(maxCount = 200) {
       if (!_enabled || !_byId.size) return [];
       const out = [];

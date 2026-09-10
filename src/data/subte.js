@@ -231,6 +231,11 @@ export function createSubteLayer({
       _lines = new Map();
     },
 
+    describePick(pickedId) {
+      const s = _stations.get(String(pickedId).replace(/^subte:/, ''))?.station;
+      return s ? { title: `${s.name} · Línea ${s.line}`, details: [s.ok ? 'Servicio normal' : s.status] } : null;
+    },
+
     getAnalystRecords(maxCount = 200) {
       if (!_enabled) return [];
       const out = [];

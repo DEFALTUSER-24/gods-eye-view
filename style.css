@@ -9574,3 +9574,22 @@ body.scene-playback-mode #key-setup {
 .location-toolbar-btn:hover { background: rgba(255, 255, 255, 0.1); color: var(--text-primary, #eef4f8); }
 .location-toolbar-btn.shake { animation: sv-shake 0.35s ease; }
 @keyframes sv-shake { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+
+/* Right-click context menu (globe + layer features) */
+.gev-context-menu {
+  position: fixed; z-index: 10000; min-width: 220px; max-width: 320px;
+  padding: 6px; border-radius: 8px;
+  background: rgba(10, 16, 22, 0.94); border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45); backdrop-filter: blur(6px);
+  font-size: 12px; color: var(--text-primary, #eef4f8);
+}
+.gev-context-title { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px 8px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.gev-context-name { font-weight: 600; letter-spacing: 0.04em; }
+.gev-context-coords { font-size: 10px; opacity: 0.6; font-family: monospace; }
+.gev-context-detail { padding: 2px 8px; font-size: 10.5px; opacity: 0.75; text-transform: uppercase; letter-spacing: 0.04em; }
+.gev-context-item {
+  display: block; width: 100%; text-align: left; margin-top: 4px;
+  padding: 7px 8px; border-radius: 6px; border: 0; background: transparent;
+  color: inherit; font: inherit; cursor: pointer;
+}
+.gev-context-item:hover { background: rgba(255, 255, 255, 0.1); }
